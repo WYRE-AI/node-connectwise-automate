@@ -4,6 +4,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { resolveConfig, DEFAULT_RATE_LIMIT_CONFIG } from '../../src/config.js';
+import { ConnectWiseAutomateValidationError } from '../../src/errors.js';
+
+const integratorCreds = {
+  method: 'integrator' as const,
+  integratorUsername: 'user',
+  integratorPassword: 'pass',
+};
 
 describe('resolveConfig', () => {
   describe('serverUrl handling', () => {
@@ -47,6 +54,54 @@ describe('resolveConfig', () => {
           },
         })
       ).toThrow('serverUrl is required');
+    });
+
+    it('should reject a non-HTTPS serverUrl', () => {
+      expect(() =>
+        resolveConfig({
+          serverUrl: 'http://server.hostedrmm.com',
+          clientId: 'test-id',
+          credentials: integratorCreds,
+        })
+      ).toThrow(ConnectWiseAutomateValidationError);
+
+      expect(() =>
+        resolveConfig({
+          serverUrl: 'http://server.hostedrmm.com',
+          clientId: 'test-id',
+          credentials: integratorCreds,
+        })
+      ).toThrow(/must use HTTPS/);
+    });
+
+    it('should reject a malformed serverUrl', () => {
+      expect(() =>
+        resolveConfig({
+          serverUrl: 'not-a-url',
+          clientId: 'test-id',
+          credentials: integratorCreds,
+        })
+      ).toThrow(ConnectWiseAutomateValidationError);
+    });
+
+    it('should allow http:// for localhost', () => {
+      const config = resolveConfig({
+        serverUrl: 'http://localhost:3000',
+        clientId: 'test-id',
+        credentials: integratorCreds,
+      });
+
+      expect(config.serverUrl).toBe('http://localhost:3000');
+    });
+
+    it('should allow http:// for 127.0.0.1', () => {
+      const config = resolveConfig({
+        serverUrl: 'http://127.0.0.1:8080',
+        clientId: 'test-id',
+        credentials: integratorCreds,
+      });
+
+      expect(config.serverUrl).toBe('http://127.0.0.1:8080');
     });
   });
 

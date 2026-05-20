@@ -2,6 +2,8 @@
  * Configuration types and defaults for the ConnectWise Automate client
  */
 
+import { ConnectWiseAutomateValidationError } from './errors.js';
+
 /**
  * Rate limiting configuration
  */
@@ -99,6 +101,27 @@ export function resolveConfig(config: ConnectWiseAutomateConfig): ResolvedConfig
 
   // Remove trailing slash if present
   const serverUrl = config.serverUrl.replace(/\/$/, '');
+
+  // Enforce HTTPS for the server URL. An explicit http:// localhost / 127.0.0.1
+  // exception is allowed for local development and testing only.
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(serverUrl);
+  } catch {
+    throw new ConnectWiseAutomateValidationError(
+      `serverUrl must be a valid URL (received: "${config.serverUrl}")`
+    );
+  }
+
+  const isLocalhost =
+    parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1';
+
+  if (parsedUrl.protocol !== 'https:' && !(parsedUrl.protocol === 'http:' && isLocalhost)) {
+    throw new ConnectWiseAutomateValidationError(
+      `serverUrl must use HTTPS (received scheme: "${parsedUrl.protocol}"). ` +
+        'Plain http:// is only permitted for localhost/127.0.0.1.'
+    );
+  }
 
   // Validate client ID
   if (!config.clientId) {
