@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.1...v1.0.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* medium-severity review fixes (HTTPS validation, Node 22, audit) ([#2](https://github.com/wyre-technology/node-connectwise-automate/issues/2)) ([d855460](https://github.com/wyre-technology/node-connectwise-automate/commit/d85546049862c4587d3efd4c2a80e13ca2581841))
+
 ## [1.0.1](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.0...v1.0.1) (2026-02-18)
 
 
