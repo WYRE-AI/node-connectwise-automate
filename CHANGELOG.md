@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Enforce HTTPS on the user-supplied `serverUrl`; plain `http://` is now rejected
+  unless the host is `localhost` or `127.0.0.1` (local development exception)
+- Applied non-breaking `npm audit fix` updates to transitive dependencies
+
+### Changed
+
+- Standardized supported Node.js version on 22 across `package.json` engines,
+  CI matrix (`22.x`, `24.x`), and the `tsup` build target (`node22`)
+- Bumped `@types/node` to `^22.0.0`
+
 ### Added
 
 - Initial release of the ConnectWise Automate TypeScript client library
