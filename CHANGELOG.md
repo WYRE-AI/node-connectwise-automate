@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.3...v1.0.4) (2026-07-18)
+
+
+### Bug Fixes
+
+* read HTTP response bodies exactly once ([#54](https://github.com/wyre-technology/node-connectwise-automate/issues/54)) ([2fc9bc2](https://github.com/wyre-technology/node-connectwise-automate/commit/2fc9bc2703d1d5f5bf92e616db360f7a633ec42b))
+
 ## [1.0.3](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.2...v1.0.3) (2026-06-08)
 
 
