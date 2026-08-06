@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.4...v1.0.5) (2026-08-06)
+
+
+### Bug Fixes
+
+* **deps:** ignore unreachable ip-address advisory in dependabot config ([#67](https://github.com/wyre-technology/node-connectwise-automate/issues/67)) ([ce2365e](https://github.com/wyre-technology/node-connectwise-automate/commit/ce2365e0a599847d2535fe2f4cf07537e91f41a0))
+
 ## [1.0.4](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.3...v1.0.4) (2026-07-18)
 
 
