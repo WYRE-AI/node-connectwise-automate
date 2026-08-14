@@ -3,8 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { ConnectWiseAutomateClient } from '../../src/client.js';
 import { ConnectWiseAutomateNotFoundError } from '../../src/errors.js';
+import { server } from '../mocks/server.js';
+import * as fixtures from '../fixtures/index.js';
 
 describe('Computers Resource', () => {
   const createClient = () =>
@@ -106,16 +109,71 @@ describe('Computers Resource', () => {
   });
 
   describe('executeCommand', () => {
-    it('should execute a command on a computer', async () => {
+    it('should post the command as a nested catalog reference', async () => {
       const client = createClient();
+      let sentBody: unknown;
+
+      server.use(
+        http.post(
+          'https://testserver.hostedrmm.com/cwa/api/v1/Computers/:id/Commandexecute',
+          async ({ request }) => {
+            sentBody = await request.json();
+            return HttpResponse.json(fixtures.computers.commandResult);
+          }
+        )
+      );
+
       const result = await client.computers.executeCommand(1, {
-        Command: 'ipconfig /all',
-        RunAsAdmin: true,
+        Command: { Id: '2' },
+        Parameters: ['ipconfig /all'],
       });
 
-      expect(result.Success).toBe(true);
-      expect(result.ExitCode).toBe(0);
-      expect(result.Output).toBe('Command executed successfully');
+      // The command must travel as an object carrying its catalog id, and the
+      // computer id must be echoed into the body — a flat command string binds
+      // to nothing server-side and the run terminates on arrival.
+      expect(sentBody).toEqual({
+        Command: { Id: '2' },
+        Parameters: ['ipconfig /all'],
+        ComputerId: 1,
+      });
+      expect(result.Command?.Id).toBe('2');
+      expect(result.Status).toBe('Success');
+    });
+  });
+
+  describe('commandHistory', () => {
+    it('should return the bare array Automate sends', async () => {
+      const client = createClient();
+
+      server.use(
+        http.get(
+          'https://testserver.hostedrmm.com/cwa/api/v1/Computers/:id/Commandhistory',
+          () => HttpResponse.json(fixtures.computers.commandHistory)
+        )
+      );
+
+      const history = await client.computers.commandHistory(1);
+
+      expect(Array.isArray(history)).toBe(true);
+      expect(history[0]?.Status).toBe('Success');
+      expect(history[0]?.DateFinished).toBe('2024-01-15T10:35:04Z');
+    });
+  });
+
+  describe('commands', () => {
+    it('should list the command catalog', async () => {
+      const client = createClient();
+
+      server.use(
+        http.get('https://testserver.hostedrmm.com/cwa/api/v1/Commands', () =>
+          HttpResponse.json(fixtures.computers.commandCatalog)
+        )
+      );
+
+      const commands = await client.computers.commands();
+
+      expect(commands).toHaveLength(2);
+      expect(commands[1]?.Name).toBe('Command Prompt');
     });
   });
 

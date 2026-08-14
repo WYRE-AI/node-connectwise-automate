@@ -11,9 +11,13 @@ import type {
   ComputerListResponse,
   ComputerCreateData,
   ComputerUpdateData,
-  ComputerCommand,
-  CommandResult,
+  ComputerCommandRequest,
+  ComputerCommandExecution,
+  CommandHistoryEntry,
+  AutomateCommand,
 } from '../types/computers.js';
+import type { BaseListParams } from '../types/common.js';
+import { buildBaseListParams } from '../params.js';
 
 /**
  * Computers resource operations
@@ -82,13 +86,63 @@ export class ComputersResource {
   }
 
   /**
-   * Execute a command on a computer
+   * Issue a catalog command to a computer.
+   *
+   * `command.Command.Id` must be an id from the command catalog (`commands()`);
+   * Automate does not accept free-text commands here.
    */
-  async executeCommand(id: number, command: ComputerCommand): Promise<CommandResult> {
-    return this.httpClient.request<CommandResult>(`/Computers/${id}/CommandExecute`, {
-      method: 'POST',
-      body: command,
+  async executeCommand(
+    id: number,
+    command: Omit<ComputerCommandRequest, 'ComputerId'>
+  ): Promise<ComputerCommandExecution> {
+    return this.httpClient.request<ComputerCommandExecution>(
+      `/Computers/${id}/Commandexecute`,
+      {
+        method: 'POST',
+        body: { ...command, ComputerId: id },
+      }
+    );
+  }
+
+  /**
+   * List commands currently queued or executing on a computer
+   */
+  async commandExecutions(id: number): Promise<ComputerCommandExecution[]> {
+    return this.httpClient.request<ComputerCommandExecution[]>(
+      `/Computers/${id}/Commandexecute`
+    );
+  }
+
+  /**
+   * Get past command runs for a computer, including status and output.
+   *
+   * This is the only place a command's outcome is observable — the execute
+   * call itself returns before the agent has done anything.
+   */
+  async commandHistory(
+    id: number,
+    params?: BaseListParams
+  ): Promise<CommandHistoryEntry[]> {
+    return this.httpClient.request<CommandHistoryEntry[]>(
+      `/Computers/${id}/Commandhistory`,
+      { params: buildBaseListParams(params) }
+    );
+  }
+
+  /**
+   * List the instance's command catalog
+   */
+  async commands(params?: BaseListParams): Promise<AutomateCommand[]> {
+    return this.httpClient.request<AutomateCommand[]>('/Commands', {
+      params: buildBaseListParams(params),
     });
+  }
+
+  /**
+   * Get a single catalog command by id
+   */
+  async getCommand(commandId: string | number): Promise<AutomateCommand> {
+    return this.httpClient.request<AutomateCommand>(`/Commands/${commandId}`);
   }
 
   /**
@@ -141,9 +195,9 @@ export class ComputersResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.clientId !== undefined) result['clientId'] = params.clientId;
     if (params.locationId !== undefined) result['locationId'] = params.locationId;
     if (params.includeOffline !== undefined) result['includeOffline'] = params.includeOffline;

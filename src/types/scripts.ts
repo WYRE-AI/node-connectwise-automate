@@ -73,89 +73,118 @@ export interface ScriptListResponse {
 }
 
 /**
- * Script execution request
+ * Request body for scheduling a script against a computer
+ * (`POST /Computers/{id}/Scheduledscripts`).
+ *
+ * Automate has no synchronous "run script now" endpoint — a run is started by
+ * creating a scheduled-script row. Leaving the schedule fields unset makes the
+ * script eligible immediately, which is the closest thing to "run now".
+ *
+ * NOTE: `Parameters` is a single string on this endpoint (Automate's own
+ * delimited format), NOT a key/value map and NOT an array. The scripting
+ * endpoints use three different parameter encodings; see `ScriptScheduleEntry`.
  */
-export interface ScriptExecuteRequest {
-  /** Script ID */
+export interface ScheduleScriptRequest {
+  /** Script ID to run */
   ScriptId: number;
-  /** Target computer IDs */
-  ComputerIds: number[];
-  /** Script parameters */
-  Parameters?: Record<string, string | number | boolean>;
-  /** Priority (1=high, 2=normal, 3=low) */
-  Priority?: number;
-  /** Run offline mode */
-  OfflineMode?: boolean;
-}
-
-/**
- * Script execution response
- */
-export interface ScriptExecuteResponse {
-  /** Execution job ID */
-  JobId: string;
-  /** Script ID */
-  ScriptId: number;
-  /** Target computers */
-  ComputerIds: number[];
-  /** Status */
-  Status: 'Queued' | 'Running' | 'Completed' | 'Failed';
-  /** Message */
-  Message?: string;
-  /** Queued date */
-  QueuedDate: string;
-}
-
-/**
- * Script execution history
- */
-export interface ScriptExecution extends BaseEntity {
-  /** Script ID */
-  ScriptId: number;
-  /** Script name */
-  ScriptName?: string;
-  /** Computer ID */
+  /** Target computer ID */
   ComputerId: number;
-  /** Computer name */
-  ComputerName?: string;
-  /** Execution status */
-  Status: 'Queued' | 'Running' | 'Completed' | 'Failed' | 'Cancelled';
-  /** Start time */
-  StartTime?: string;
-  /** End time */
-  EndTime?: string;
-  /** Duration in seconds */
-  Duration?: number;
-  /** Exit code */
-  ExitCode?: number;
-  /** Output/results */
-  Output?: string;
-  /** Error message */
-  ErrorMessage?: string;
+  /** Script parameters, in Automate's delimited string format */
+  Parameters?: string;
+  /** Priority (lower runs sooner) */
+  Priority?: number;
+  /** Skip the run entirely if the agent is offline at fire time */
+  SkipOffline?: boolean;
+  /** Send a Wake-on-LAN before running if the agent is offline */
+  WakeOffline?: boolean;
+  /** Only run when the agent is offline */
+  OfflineOnly?: boolean;
+  /** Earliest date the schedule is eligible to run */
+  EffectiveStartDate?: string;
+  /** Latest date the schedule is eligible to run */
+  EffectiveEndDate?: string;
 }
 
 /**
- * Script execution list parameters
+ * A scheduled-script row, as returned by `/Computers/{id}/Scheduledscripts`.
  */
-export interface ScriptExecutionListParams extends BaseListParams {
-  /** Filter by script ID */
-  scriptId?: number;
-  /** Filter by computer ID */
-  computerId?: number;
-  /** Filter by status */
-  status?: 'Queued' | 'Running' | 'Completed' | 'Failed' | 'Cancelled';
-  /** Filter by date range start */
-  startDate?: string;
-  /** Filter by date range end */
-  endDate?: string;
+export interface ScheduledScript extends BaseEntity {
+  ScriptId?: number;
+  ClientId?: number;
+  LocationId?: number;
+  ComputerId?: number;
+  GroupId?: number;
+  Disabled?: boolean;
+  EffectiveStartDate?: string;
+  EffectiveEndDate?: string;
+  NextRun?: string;
+  NextSchedule?: string;
+  ScheduleType?: number;
+  Parameters?: string;
+  Priority?: number;
+  SkipOffline?: boolean;
+  OfflineOnly?: boolean;
+  WakeOffline?: boolean;
+  User?: string;
+  LastUpdate?: string;
 }
 
 /**
- * Script execution list response
+ * A currently-running script on a computer
+ * (`GET /Computers/{id}/Runningscripts`).
  */
-export interface ScriptExecutionListResponse {
-  TotalRecords?: number;
-  Data: ScriptExecution[];
+export interface RunningScript extends BaseEntity {
+  ScriptId?: number;
+  ComputerId?: number;
+  Name?: string;
+  Status?: 'Running' | 'Completed';
+  StartDate?: string;
+}
+
+/**
+ * A completed script run on a computer
+ * (`GET /Computers/{id}/Scripthistory`).
+ *
+ * `State` carries the pass/fail verdict and `DiagnosticMessage` is the only
+ * free-text failure reason the Automate API exposes for a script run.
+ */
+export interface ScriptHistoryEntry extends BaseEntity {
+  ScriptId?: number;
+  ComputerId?: number;
+  Name?: string;
+  User?: string;
+  Status?: 'Running' | 'Completed';
+  State?: 'Failure' | 'Information' | 'Success';
+  HistoryDate?: string;
+  DiagnosticMessage?: string;
+}
+
+/**
+ * Terminal outcome of `ScriptsResource.runAndWait()`.
+ */
+export interface ScriptRunResult {
+  /** Whether a terminal history row was observed before the timeout */
+  completed: boolean;
+  /** The scheduled-script row created to start the run */
+  schedule: ScheduledScript;
+  /** The matched history row, when the run reached a terminal state */
+  history?: ScriptHistoryEntry;
+  /** Convenience verdict lifted from `history.State` */
+  state?: 'Failure' | 'Information' | 'Success';
+  /** Free-text reason from Automate, when present */
+  diagnosticMessage?: string;
+  /** How long polling ran, in milliseconds */
+  waitedMs: number;
+}
+
+/**
+ * Polling behaviour for `ScriptsResource.runAndWait()`.
+ */
+export interface ScriptRunWaitOptions {
+  /** Give up waiting after this many ms (default: 120_000) */
+  timeoutMs?: number;
+  /** Delay between polls in ms (default: 3_000) */
+  pollIntervalMs?: number;
 }
 
 /**

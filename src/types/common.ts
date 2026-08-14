@@ -10,14 +10,18 @@ export interface BaseListParams {
   pageSize?: number;
   /** Page number (1-indexed, default: 1) */
   page?: number;
-  /** OData filter expression */
+  /** Automate filter expression, e.g. `ComputerName like '%web%'` */
   condition?: string;
-  /** Fields to select */
-  select?: string;
+  /** Comma-separated fields to include in the response */
+  includeFields?: string;
+  /** Comma-separated fields to omit from the response */
+  excludeFields?: string;
   /** Sort field and direction */
   orderBy?: string;
   /** Expand related entities */
   expand?: string;
+  /** Comma-separated list of ids to fetch */
+  ids?: string;
 }
 
 /**

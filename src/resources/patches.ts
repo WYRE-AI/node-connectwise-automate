@@ -124,9 +124,9 @@ export class PatchesResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.isApproved !== undefined) result['isApproved'] = params.isApproved;
     if (params.category !== undefined) result['category'] = params.category;
     if (params.severity !== undefined) result['severity'] = params.severity;
@@ -149,9 +149,9 @@ export class PatchesResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.computerId !== undefined) result['computerId'] = params.computerId;
     if (params.patchId !== undefined) result['patchId'] = params.patchId;
     if (params.status !== undefined) result['status'] = params.status;

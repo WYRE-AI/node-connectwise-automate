@@ -98,10 +98,51 @@ export const updated = {
   Comment: 'Updated comment',
 };
 
+/**
+ * Shape returned by `POST /Computers/{id}/Commandexecute`.
+ * Mirrors Automate's `LabTechCommandExecute`: the command echoes back as a
+ * nested catalog object, parameters are a positional string array, and Status
+ * is free-form server text.
+ */
 export const commandResult = {
+  Id: 4711,
   ComputerId: 1,
-  Output: 'Command executed successfully',
-  ExitCode: 0,
-  Success: true,
-  ExecutedAt: '2024-01-15T10:35:00Z',
+  Command: {
+    Id: '2',
+    Name: 'Command Prompt',
+    Description: 'Run a command prompt command',
+    Level: 1,
+  },
+  Status: 'Success',
+  Parameters: ['ipconfig /all'],
+  Output: 'Windows IP Configuration',
+  Fastalk: false,
+  DateLastInventoried: '2024-01-15T10:35:00Z',
 };
+
+/** Automate's command catalog, `GET /Commands` — a bare array. */
+export const commandCatalog = [
+  { Id: '1', Name: 'Resend System Info', Description: 'Re-inventory', Level: 1 },
+  {
+    Id: '2',
+    Name: 'Command Prompt',
+    Description: 'Run a command prompt command',
+    Level: 1,
+  },
+];
+
+/** `GET /Computers/{id}/Commandhistory` — a bare array. */
+export const commandHistory = [
+  {
+    Id: 4711,
+    ComputerId: 1,
+    DateExecuted: '2024-01-15T10:35:00Z',
+    CommandId: 2,
+    Command: 'Command Prompt',
+    Status: 'Success',
+    Output: 'Windows IP Configuration',
+    Parameters: 'ipconfig /all',
+    User: 'integrator',
+    DateFinished: '2024-01-15T10:35:04Z',
+  },
+];
