@@ -104,9 +104,9 @@ export class GroupsResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.groupType !== undefined) result['groupType'] = params.groupType;
     if (params.parentId !== undefined) result['parentId'] = params.parentId;
     if (params.name !== undefined) result['name'] = params.name;
@@ -125,9 +125,9 @@ export class GroupsResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.groupId !== undefined) result['groupId'] = params.groupId;
     if (params.memberType !== undefined) result['memberType'] = params.memberType;
 

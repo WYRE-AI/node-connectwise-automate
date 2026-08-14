@@ -125,22 +125,99 @@ export interface ComputerUpdateData {
 }
 
 /**
- * Computer command execution
+ * An entry in Automate's command catalog (`GET /Commands`).
+ *
+ * Automate commands are a fixed, server-defined catalog addressed by id — they
+ * are not arbitrary shell strings. Enumerate this list to discover which
+ * commands an instance supports and what parameters each expects.
  */
-export interface ComputerCommand {
-  Command: string;
-  Parameters?: Record<string, string | number | boolean>;
-  RunAsAdmin?: boolean;
-  PowerShell?: boolean;
+export interface AutomateCommand {
+  /** Command id. Typed as a string by Automate's own schema. */
+  Id?: string;
+  Name?: string;
+  Description?: string;
+  Level?: number;
 }
 
 /**
- * Command execution result
+ * Request body for `POST /Computers/{id}/Commandexecute`.
+ *
+ * The command travels as a nested object carrying its catalog id, and
+ * `Parameters` is a positional array of strings — not a key/value map. Sending
+ * a flat command string leaves every field unbound server-side, which surfaces
+ * to the operator as a command that terminates immediately.
  */
-export interface CommandResult {
-  ComputerId: number;
-  Output: string;
-  ExitCode: number;
-  Success: boolean;
-  ExecutedAt: string;
+export interface ComputerCommandRequest {
+  /** Target computer id */
+  ComputerId?: number;
+  /** The catalog command to run, addressed by id */
+  Command: Pick<AutomateCommand, 'Id'>;
+  /** Positional parameters for the command */
+  Parameters?: string[];
+}
+
+/**
+ * Response from `POST/GET /Computers/{id}/Commandexecute`.
+ *
+ * `Status` is free-form text from the server — Automate emits values outside
+ * any documented set (`Terminated` among them), so it is deliberately not
+ * narrowed to a union here.
+ */
+export interface ComputerCommandExecution {
+  Id?: number;
+  ComputerId?: number;
+  Command?: AutomateCommand;
+  Status?: string;
+  Parameters?: string[];
+  Output?: string;
+  Fastalk?: boolean;
+  DateLastInventoried?: string;
+}
+
+/**
+ * Polling behaviour for `ComputersResource.executeCommandAndWait()`.
+ */
+export interface CommandWaitOptions {
+  /** Give up waiting after this many ms (default: 120_000) */
+  timeoutMs?: number;
+  /** Delay between polls in ms (default: 3_000) */
+  pollIntervalMs?: number;
+}
+
+/**
+ * Terminal outcome of `ComputersResource.executeCommandAndWait()`.
+ */
+export interface CommandRunResult {
+  /** Whether a finished history row was observed before the timeout */
+  completed: boolean;
+  /** The response from the execute call itself */
+  execution: ComputerCommandExecution;
+  /** The matched history row, when the command finished */
+  history?: CommandHistoryEntry;
+  /** Status text, from history when available */
+  status?: string;
+  /** Command output, when the command finished */
+  output?: string;
+  /** How long polling ran, in milliseconds */
+  waitedMs: number;
+}
+
+/**
+ * A past command run (`GET /Computers/{id}/Commandhistory`).
+ *
+ * This is the only surface carrying a command's outcome and output.
+ * Note that `Parameters` is a single string here, while the execute endpoint
+ * uses a string array — the two representations genuinely differ.
+ */
+export interface CommandHistoryEntry {
+  Id?: number;
+  ComputerId?: number;
+  DateExecuted?: string;
+  CommandId?: number;
+  Command?: string;
+  Status?: string;
+  Output?: string;
+  Parameters?: string;
+  User?: string;
+  DateFinished?: string;
 }

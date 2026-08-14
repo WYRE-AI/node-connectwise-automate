@@ -95,9 +95,9 @@ export class ClientsResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.includeInactive !== undefined) result['includeInactive'] = params.includeInactive;
     if (params.name !== undefined) result['name'] = params.name;
 
@@ -182,9 +182,9 @@ export class LocationsResource {
     if (params.pageSize !== undefined) result['pageSize'] = params.pageSize;
     if (params.page !== undefined) result['page'] = params.page;
     if (params.condition !== undefined) result['condition'] = params.condition;
-    if (params.select !== undefined) result['$select'] = params.select;
-    if (params.orderBy !== undefined) result['$orderby'] = params.orderBy;
-    if (params.expand !== undefined) result['$expand'] = params.expand;
+    if (params.includeFields !== undefined) result['includeFields'] = params.includeFields;
+    if (params.orderBy !== undefined) result['orderBy'] = params.orderBy;
+    if (params.expand !== undefined) result['expand'] = params.expand;
     if (params.clientId !== undefined) result['clientId'] = params.clientId;
 
     return result;
