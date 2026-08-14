@@ -115,7 +115,7 @@ describe('Computers Resource', () => {
 
       server.use(
         http.post(
-          'https://testserver.hostedrmm.com/cwa/api/v1/Computers/:id/Commandexecute',
+          'https://testserver.hostedrmm.com/cwa/api/v1/Computers/:id/CommandExecute',
           async ({ request }) => {
             sentBody = await request.json();
             return HttpResponse.json(fixtures.computers.commandResult);
@@ -147,7 +147,7 @@ describe('Computers Resource', () => {
 
       server.use(
         http.get(
-          'https://testserver.hostedrmm.com/cwa/api/v1/Computers/:id/Commandhistory',
+          'https://testserver.hostedrmm.com/cwa/api/v1/Computers/:id/CommandHistory',
           () => HttpResponse.json(fixtures.computers.commandHistory)
         )
       );

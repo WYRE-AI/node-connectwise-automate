@@ -15,9 +15,16 @@ import type {
   ComputerCommandExecution,
   CommandHistoryEntry,
   AutomateCommand,
+  CommandWaitOptions,
+  CommandRunResult,
 } from '../types/computers.js';
 import type { BaseListParams } from '../types/common.js';
 import { buildBaseListParams } from '../params.js';
+
+/** Resolve after `ms` milliseconds. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Computers resource operations
@@ -96,7 +103,7 @@ export class ComputersResource {
     command: Omit<ComputerCommandRequest, 'ComputerId'>
   ): Promise<ComputerCommandExecution> {
     return this.httpClient.request<ComputerCommandExecution>(
-      `/Computers/${id}/Commandexecute`,
+      `/Computers/${id}/CommandExecute`,
       {
         method: 'POST',
         body: { ...command, ComputerId: id },
@@ -109,7 +116,7 @@ export class ComputersResource {
    */
   async commandExecutions(id: number): Promise<ComputerCommandExecution[]> {
     return this.httpClient.request<ComputerCommandExecution[]>(
-      `/Computers/${id}/Commandexecute`
+      `/Computers/${id}/CommandExecute`
     );
   }
 
@@ -124,9 +131,63 @@ export class ComputersResource {
     params?: BaseListParams
   ): Promise<CommandHistoryEntry[]> {
     return this.httpClient.request<CommandHistoryEntry[]>(
-      `/Computers/${id}/Commandhistory`,
+      `/Computers/${id}/CommandHistory`,
       { params: buildBaseListParams(params) }
     );
+  }
+
+  /**
+   * Issue a command and poll command history until it finishes.
+   *
+   * Like scripts, commands are asynchronous with no job handle — the execute
+   * call returns before the agent has acted. Correlation is by row identity
+   * against a pre-launch baseline, so a previous run of the same command can
+   * never be mistaken for this one.
+   *
+   * Returns with `completed: false` if the timeout elapses; the command keeps
+   * running and can be picked up later via `commandHistory`.
+   */
+  async executeCommandAndWait(
+    id: number,
+    command: Omit<ComputerCommandRequest, 'ComputerId'>,
+    options: CommandWaitOptions = {}
+  ): Promise<CommandRunResult> {
+    const timeoutMs = options.timeoutMs ?? 120_000;
+    const pollIntervalMs = options.pollIntervalMs ?? 3_000;
+
+    const seenIds = new Set(
+      (await this.commandHistory(id)).map((entry) => entry.Id)
+    );
+
+    const execution = await this.executeCommand(id, command);
+
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      await delay(pollIntervalMs);
+
+      const history = await this.commandHistory(id);
+      const match = history.find(
+        (entry) => !seenIds.has(entry.Id) && entry.DateFinished !== undefined
+      );
+
+      if (match) {
+        return {
+          completed: true,
+          execution,
+          history: match,
+          status: match.Status,
+          output: match.Output,
+          waitedMs: Date.now() - startedAt,
+        };
+      }
+    }
+
+    return {
+      completed: false,
+      execution,
+      status: execution.Status,
+      waitedMs: Date.now() - startedAt,
+    };
   }
 
   /**

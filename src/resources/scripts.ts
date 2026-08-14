@@ -18,6 +18,8 @@ import type {
   ScriptHistoryEntry,
   ScriptRunResult,
   ScriptRunWaitOptions,
+  ScriptExecuteBatchRequest,
+  ScriptExecuteBatchResponse,
 } from '../types/scripts.js';
 
 /** Resolve after `ms` milliseconds. */
@@ -75,7 +77,7 @@ export class ScriptsResource {
     request: Omit<ScheduleScriptRequest, 'ComputerId'>
   ): Promise<ScheduledScript> {
     return this.httpClient.request<ScheduledScript>(
-      `/Computers/${computerId}/Scheduledscripts`,
+      `/Computers/${computerId}/ScheduledScripts`,
       {
         method: 'POST',
         body: { ...request, ComputerId: computerId },
@@ -88,7 +90,26 @@ export class ScriptsResource {
    */
   async schedulesForComputer(computerId: number): Promise<ScheduledScript[]> {
     return this.httpClient.request<ScheduledScript[]>(
-      `/Computers/${computerId}/Scheduledscripts`
+      `/Computers/${computerId}/ScheduledScripts`
+    );
+  }
+
+  /**
+   * Launch a script against many targets in one call.
+   *
+   * Unlike the per-computer schedule route, this reports per-target acceptance
+   * so a target that was rejected outright (permissions, unknown id) is
+   * distinguishable from one whose script simply hasn't finished yet.
+   */
+  async executeBatch(
+    request: ScriptExecuteBatchRequest
+  ): Promise<ScriptExecuteBatchResponse> {
+    return this.httpClient.request<ScriptExecuteBatchResponse>(
+      '/Batch/ScriptExecute',
+      {
+        method: 'POST',
+        body: { EntityType: 'Computer', ...request },
+      }
     );
   }
 
@@ -97,7 +118,7 @@ export class ScriptsResource {
    */
   async runningOnComputer(computerId: number): Promise<RunningScript[]> {
     return this.httpClient.request<RunningScript[]>(
-      `/Computers/${computerId}/Runningscripts`
+      `/Computers/${computerId}/RunningScripts`
     );
   }
 
@@ -112,82 +133,117 @@ export class ScriptsResource {
     params?: BaseListParams
   ): Promise<ScriptHistoryEntry[]> {
     return this.httpClient.request<ScriptHistoryEntry[]>(
-      `/Computers/${computerId}/Scripthistory`,
+      `/Computers/${computerId}/ScriptHistory`,
       { params: this.buildListParams(params) }
     );
   }
 
   /**
-   * Run a script on a computer and poll until it reaches a terminal state.
+   * Run a script on one or more computers and poll until each finishes.
    *
-   * Correlation is by row identity, not timestamps: the history rows present
-   * before launch are captured as a baseline, and only a row absent from that
-   * baseline (and matching this script + computer) is accepted as this run's
-   * result. That avoids both clock-skew between client and server and the
-   * false match you would get if the same script were already running.
+   * Automate has no synchronous run and hands back no job id, so the outcome
+   * has to be recovered from script history. Correlation is by row identity
+   * against a pre-launch baseline: only a history row absent from that
+   * baseline, matching this script, and marked `Completed` counts as this
+   * run's result. Timestamps are deliberately not used — that would be at the
+   * mercy of clock skew between this process and the Automate server.
    *
-   * Returns with `completed: false` if the timeout elapses first — the script
-   * keeps running server-side; poll `historyForComputer` to pick it up later.
+   * A target whose timeout elapses comes back with `completed: false`; the
+   * script is still running server-side and can be picked up later from
+   * `historyForComputer`.
    */
   async runAndWait(
-    computerId: number,
-    request: Omit<ScheduleScriptRequest, 'ComputerId'>,
+    computerIds: number[],
+    request: Omit<ScriptExecuteBatchRequest, 'EntityIds'>,
     options: ScriptRunWaitOptions = {}
-  ): Promise<ScriptRunResult> {
+  ): Promise<ScriptRunResult[]> {
     const timeoutMs = options.timeoutMs ?? 120_000;
     const pollIntervalMs = options.pollIntervalMs ?? 3_000;
 
-    // Baseline the existing history so a pre-existing run can never be
-    // mistaken for the one we are about to start.
-    const seenHistoryIds = new Set(
-      (await this.historyForComputer(computerId)).map((entry) => entry.Id)
+    // Baseline every target's history before launching, so a run that was
+    // already in flight can never be mistaken for the one we start here.
+    const baselines = new Map<number, Set<number | undefined>>();
+    await Promise.all(
+      computerIds.map(async (computerId) => {
+        const history = await this.historyForComputer(computerId);
+        baselines.set(computerId, new Set(history.map((entry) => entry.Id)));
+      })
     );
 
-    const schedule = await this.scheduleForComputer(computerId, request);
+    const batch = await this.executeBatch({ ...request, EntityIds: computerIds });
+    const launchByEntity = new Map(
+      (batch.ScriptResults ?? []).map((result) => [result.EntityId, result])
+    );
 
     const startedAt = Date.now();
-    while (Date.now() - startedAt < timeoutMs) {
-      await delay(pollIntervalMs);
 
-      const history = await this.historyForComputer(computerId);
-      const match = history.find(
-        (entry) =>
-          !seenHistoryIds.has(entry.Id) &&
-          entry.ScriptId === request.ScriptId &&
-          entry.Status === 'Completed'
-      );
+    return Promise.all(
+      computerIds.map(async (computerId) => {
+        const launch = launchByEntity.get(computerId);
+        // ResultStatus is only meaningful when the server reported on this
+        // target; absence of a row is treated as accepted, since older
+        // instances answer the batch call without a per-entity breakdown.
+        const launched =
+          launch === undefined || (launch.ResultDetails?.ResultStatus ?? 0) === 0;
 
-      if (match) {
+        if (!launched) {
+          return {
+            computerId,
+            launched: false,
+            launchMessage: launch?.ResultDetails?.Message,
+            completed: false,
+            waitedMs: 0,
+          };
+        }
+
+        const seen = baselines.get(computerId) ?? new Set();
+
+        while (Date.now() - startedAt < timeoutMs) {
+          await delay(pollIntervalMs);
+
+          const history = await this.historyForComputer(computerId);
+          const match = history.find(
+            (entry) =>
+              !seen.has(entry.Id) &&
+              entry.ScriptId === request.ScriptId &&
+              entry.Status === 'Completed'
+          );
+
+          if (match) {
+            return {
+              computerId,
+              launched: true,
+              completed: true,
+              history: match,
+              state: match.State,
+              diagnosticMessage: match.DiagnosticMessage,
+              waitedMs: Date.now() - startedAt,
+            };
+          }
+        }
+
         return {
-          completed: true,
-          schedule,
-          history: match,
-          state: match.State,
-          diagnosticMessage: match.DiagnosticMessage,
+          computerId,
+          launched: true,
+          completed: false,
           waitedMs: Date.now() - startedAt,
         };
-      }
-    }
-
-    return {
-      completed: false,
-      schedule,
-      waitedMs: Date.now() - startedAt,
-    };
+      })
+    );
   }
 
   /**
    * List script folders
    */
   async folders(): Promise<ScriptFolder[]> {
-    return this.httpClient.request<ScriptFolder[]>('/Scriptfolders');
+    return this.httpClient.request<ScriptFolder[]>('/ScriptFolders');
   }
 
   /**
    * Get a single folder by ID
    */
   async getFolder(id: number): Promise<ScriptFolder> {
-    return this.httpClient.request<ScriptFolder>(`/Scriptfolders/${id}`);
+    return this.httpClient.request<ScriptFolder>(`/ScriptFolders/${id}`);
   }
 
   /**

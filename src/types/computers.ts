@@ -175,6 +175,34 @@ export interface ComputerCommandExecution {
 }
 
 /**
+ * Polling behaviour for `ComputersResource.executeCommandAndWait()`.
+ */
+export interface CommandWaitOptions {
+  /** Give up waiting after this many ms (default: 120_000) */
+  timeoutMs?: number;
+  /** Delay between polls in ms (default: 3_000) */
+  pollIntervalMs?: number;
+}
+
+/**
+ * Terminal outcome of `ComputersResource.executeCommandAndWait()`.
+ */
+export interface CommandRunResult {
+  /** Whether a finished history row was observed before the timeout */
+  completed: boolean;
+  /** The response from the execute call itself */
+  execution: ComputerCommandExecution;
+  /** The matched history row, when the command finished */
+  history?: CommandHistoryEntry;
+  /** Status text, from history when available */
+  status?: string;
+  /** Command output, when the command finished */
+  output?: string;
+  /** How long polling ran, in milliseconds */
+  waitedMs: number;
+}
+
+/**
  * A past command run (`GET /Computers/{id}/Commandhistory`).
  *
  * This is the only surface carrying a command's outcome and output.

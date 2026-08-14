@@ -57,7 +57,7 @@ export const handlers = [
     return HttpResponse.json({});
   }),
 
-  http.post(`${API_BASE}/Computers/:id/Commandexecute`, () => {
+  http.post(`${API_BASE}/Computers/:id/CommandExecute`, () => {
     return HttpResponse.json(fixtures.computers.commandResult);
   }),
 

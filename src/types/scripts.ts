@@ -159,14 +159,81 @@ export interface ScriptHistoryEntry extends BaseEntity {
   DiagnosticMessage?: string;
 }
 
+/** Entity kinds a batch script run can target. */
+export type ScriptTargetEntityType =
+  | 'Computer'
+  | 'Group'
+  | 'Company'
+  | 'Site'
+  | 'Search'
+  | 'NetworkDevice';
+
+/** A script parameter as the batch endpoint expects it. */
+export interface ScriptParameterValue {
+  Key: string;
+  Value: string;
+}
+
+/** Controls what happens when a target agent is offline at fire time. */
+export interface ScriptOfflineActionFlags {
+  SkipsOfflineAgents?: boolean;
+  WakesOfflineAgents?: boolean;
+  OnlyRunsOnOfflineAgents?: boolean;
+}
+
 /**
- * Terminal outcome of `ScriptsResource.runAndWait()`.
+ * Request body for `POST /Batch/ScriptExecute` — the multi-target script
+ * launch. One call covers every target and reports per-target acceptance.
+ */
+export interface ScriptExecuteBatchRequest {
+  /** Kind of entity the ids refer to (default: `Computer`) */
+  EntityType?: ScriptTargetEntityType;
+  /** Target ids of the given entity type */
+  EntityIds: number[];
+  /** Script to run */
+  ScriptId?: number;
+  /** Alternative to ScriptId */
+  ScriptGuid?: string;
+  /** Script parameters as key/value pairs */
+  Parameters?: ScriptParameterValue[];
+  /** Offline-agent behaviour */
+  OfflineActionFlags?: ScriptOfflineActionFlags;
+  /** Priority (lower runs sooner) */
+  Priority?: number;
+  UseAgentTime?: boolean;
+  StartDate?: string;
+  ExpireDate?: string;
+  IncludeSubGroups?: boolean;
+}
+
+/** Per-target outcome of the launch itself (not of the script run). */
+export interface ScriptBatchResult {
+  EntityId?: number;
+  ResultDetails?: {
+    ResultStatus?: number;
+    ReasonCode?: number;
+    Message?: string;
+  };
+}
+
+/** Response from `POST /Batch/ScriptExecute`. */
+export interface ScriptExecuteBatchResponse {
+  ScriptResults?: ScriptBatchResult[];
+  ContainsUnsuccessfulResults?: boolean;
+}
+
+/**
+ * Terminal outcome of `ScriptsResource.runAndWait()` for one computer.
  */
 export interface ScriptRunResult {
+  /** The computer this result belongs to */
+  computerId: number;
+  /** Whether the launch itself was accepted for this target */
+  launched: boolean;
+  /** Launch rejection reason, when `launched` is false */
+  launchMessage?: string;
   /** Whether a terminal history row was observed before the timeout */
   completed: boolean;
-  /** The scheduled-script row created to start the run */
-  schedule: ScheduledScript;
   /** The matched history row, when the run reached a terminal state */
   history?: ScriptHistoryEntry;
   /** Convenience verdict lifted from `history.State` */
