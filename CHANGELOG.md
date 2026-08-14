@@ -1,3 +1,19 @@
+# [2.0.0](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.5...v2.0.0) (2026-08-14)
+
+
+* fix!: replace fabricated script/command routes with the real Automate API ([#72](https://github.com/wyre-technology/node-connectwise-automate/issues/72)) ([d6134df](https://github.com/wyre-technology/node-connectwise-automate/commit/d6134df0af7743206c8034e4d15b0b05cf8409a3))
+
+
+### BREAKING CHANGES
+
+* ScriptsResource.execute, executions, executionsAll and
+getExecution are removed; Automate has no such endpoints. Use executeBatch or
+runAndWait, and read results via historyForComputer. runAndWait takes a
+computer-id array and returns one result per computer.
+ComputersResource.executeCommand now takes { Command: { Id }, Parameters?:
+string[] } and returns ComputerCommandExecution instead of CommandResult.
+BaseListParams.select is renamed to includeFields.
+
 ## [1.0.5](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.4...v1.0.5) (2026-08-06)
 
 
