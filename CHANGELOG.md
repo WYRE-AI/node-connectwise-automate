@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.0...v2.0.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* migrate to WYRE-AI org (npm scope, ghcr namespace, registry) ([#76](https://github.com/WYRE-AI/node-connectwise-automate/issues/76)) ([413dd3d](https://github.com/WYRE-AI/node-connectwise-automate/commit/413dd3d753b0ec6a4e1d02fa4f0c5cfda5bf23a7))
+
 # [2.0.0](https://github.com/wyre-technology/node-connectwise-automate/compare/v1.0.5...v2.0.0) (2026-08-14)
 
 
