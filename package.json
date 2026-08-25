@@ -1,5 +1,5 @@
 {
-  "name": "@wyre-technology/node-connectwise-automate",
+  "name": "@wyre-ai/node-connectwise-automate",
   "version": "2.0.0",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -52,12 +52,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wyre-technology/node-connectwise-automate.git"
+    "url": "git+https://github.com/WYRE-AI/node-connectwise-automate.git"
   },
   "bugs": {
-    "url": "https://github.com/wyre-technology/node-connectwise-automate/issues"
+    "url": "https://github.com/WYRE-AI/node-connectwise-automate/issues"
   },
-  "homepage": "https://github.com/wyre-technology/node-connectwise-automate#readme",
+  "homepage": "https://github.com/WYRE-AI/node-connectwise-automate#readme",
   "engines": {
     "node": ">=22.0.0"
   },
