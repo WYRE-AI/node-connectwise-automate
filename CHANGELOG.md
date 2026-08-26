@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.1...v2.0.2) (2026-08-26)
+
+
+### Bug Fixes
+
+* **ci:** stop daily-failing Dependabot security jobs for esbuild/undici ([#73](https://github.com/WYRE-AI/node-connectwise-automate/issues/73)) ([4e93542](https://github.com/WYRE-AI/node-connectwise-automate/commit/4e935422429a3d69e0f3c60038f65b98a910ab0a))
+
 ## [2.0.1](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.0...v2.0.1) (2026-08-25)
 
 
