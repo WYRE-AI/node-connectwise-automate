@@ -5,6 +5,7 @@
 import type { HttpClient } from '../http.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
+import { normalizeListResponse } from '../types/common.js';
 import type {
   Patch,
   PatchListParams,
@@ -33,9 +34,10 @@ export class PatchesResource {
    * List patches with optional filtering
    */
   async list(params?: PatchListParams): Promise<PatchListResponse> {
-    return this.httpClient.request<PatchListResponse>('/Patches', {
+    const response = await this.httpClient.request<PatchListResponse | Patch[]>('/Patches', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**
@@ -97,9 +99,11 @@ export class PatchesResource {
    * List computer patch status
    */
   async computerPatches(params?: ComputerPatchListParams): Promise<ComputerPatchListResponse> {
-    return this.httpClient.request<ComputerPatchListResponse>('/Patches/ComputerPatches', {
-      params: this.buildComputerPatchListParams(params),
-    });
+    const response = await this.httpClient.request<ComputerPatchListResponse | ComputerPatch[]>(
+      '/Patches/ComputerPatches',
+      { params: this.buildComputerPatchListParams(params) }
+    );
+    return normalizeListResponse(response);
   }
 
   /**

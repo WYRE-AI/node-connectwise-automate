@@ -5,6 +5,7 @@
 import type { HttpClient } from '../http.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
+import { normalizeListResponse } from '../types/common.js';
 import type {
   Group,
   GroupListParams,
@@ -30,9 +31,10 @@ export class GroupsResource {
    * List groups with optional filtering
    */
   async list(params?: GroupListParams): Promise<GroupListResponse> {
-    return this.httpClient.request<GroupListResponse>('/Groups', {
+    const response = await this.httpClient.request<GroupListResponse | Group[]>('/Groups', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**
@@ -57,9 +59,11 @@ export class GroupsResource {
    * List members of a group
    */
   async members(groupId: number, params?: GroupMemberListParams): Promise<GroupMemberListResponse> {
-    return this.httpClient.request<GroupMemberListResponse>(`/Groups/${groupId}/Members`, {
-      params: this.buildMemberListParams(params),
-    });
+    const response = await this.httpClient.request<GroupMemberListResponse | GroupMember[]>(
+      `/Groups/${groupId}/Members`,
+      { params: this.buildMemberListParams(params) }
+    );
+    return normalizeListResponse(response);
   }
 
   /**

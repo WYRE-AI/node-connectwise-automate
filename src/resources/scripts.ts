@@ -6,6 +6,7 @@ import type { HttpClient } from '../http.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
 import type { BaseListParams } from '../types/common.js';
+import { normalizeListResponse } from '../types/common.js';
 import { buildBaseListParams } from '../params.js';
 import type {
   Script,
@@ -41,9 +42,10 @@ export class ScriptsResource {
    * List scripts with optional filtering
    */
   async list(params?: ScriptListParams): Promise<ScriptListResponse> {
-    return this.httpClient.request<ScriptListResponse>('/Scripts', {
+    const response = await this.httpClient.request<ScriptListResponse | Script[]>('/Scripts', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**

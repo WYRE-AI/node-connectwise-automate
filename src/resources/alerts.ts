@@ -5,6 +5,7 @@
 import type { HttpClient } from '../http.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
+import { normalizeListResponse } from '../types/common.js';
 import type {
   Alert,
   AlertListParams,
@@ -29,9 +30,10 @@ export class AlertsResource {
    * List alerts with optional filtering
    */
   async list(params?: AlertListParams): Promise<AlertListResponse> {
-    return this.httpClient.request<AlertListResponse>('/Alerts', {
+    const response = await this.httpClient.request<AlertListResponse | Alert[]>('/Alerts', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**

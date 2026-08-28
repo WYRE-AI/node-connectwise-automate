@@ -19,6 +19,7 @@ import type {
   CommandRunResult,
 } from '../types/computers.js';
 import type { BaseListParams } from '../types/common.js';
+import { normalizeListResponse } from '../types/common.js';
 import { buildBaseListParams } from '../params.js';
 
 /** Resolve after `ms` milliseconds. */
@@ -40,9 +41,10 @@ export class ComputersResource {
    * List computers with optional filtering
    */
   async list(params?: ComputerListParams): Promise<ComputerListResponse> {
-    return this.httpClient.request<ComputerListResponse>('/Computers', {
+    const response = await this.httpClient.request<ComputerListResponse | Computer[]>('/Computers', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**

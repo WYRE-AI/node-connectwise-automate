@@ -31,6 +31,27 @@ describe('Computers Resource', () => {
       expect(response.Data[0]?.ComputerName).toBe('WORKSTATION-001');
     });
 
+    it('should normalize a bare JSON array response into { Data, TotalRecords }', async () => {
+      // The live Automate REST API returns list endpoints as a bare array,
+      // even though this library's types model them as { Data, TotalRecords }
+      // (issue #38). A consumer reading response.Data must not get undefined.
+      server.use(
+        http.get('https://testserver.hostedrmm.com/cwa/api/v1/Computers', () =>
+          HttpResponse.json([
+            { Id: 1, ComputerName: 'BARE-ARRAY-001' },
+            { Id: 2, ComputerName: 'BARE-ARRAY-002' },
+          ])
+        )
+      );
+
+      const client = createClient();
+      const response = await client.computers.list();
+
+      expect(response.Data).toHaveLength(2);
+      expect(response.Data[0]?.ComputerName).toBe('BARE-ARRAY-001');
+      expect(response.TotalRecords).toBeUndefined();
+    });
+
     it('should support pagination', async () => {
       const client = createClient();
       const page1 = await client.computers.list({ page: 1 });
