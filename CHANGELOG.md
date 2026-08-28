@@ -1,3 +1,10 @@
+## [2.0.3](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.2...v2.0.3) (2026-08-28)
+
+
+### Bug Fixes
+
+* normalize bare-array list responses into { Data, TotalRecords } ([#78](https://github.com/WYRE-AI/node-connectwise-automate/issues/78)) ([c739317](https://github.com/WYRE-AI/node-connectwise-automate/commit/c73931741be29e517dac6536140ef13621108897)), closes [#38](https://github.com/WYRE-AI/node-connectwise-automate/issues/38)
+
 ## [2.0.2](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.1...v2.0.2) (2026-08-26)
 
 
