@@ -5,6 +5,7 @@
  */
 
 import type { HttpClient } from './http.js';
+import { normalizeListResponse } from './types/common.js';
 
 /**
  * Pagination parameters
@@ -53,14 +54,17 @@ export class PaginatedIterable<T> implements AsyncIterable<T> {
     let fetchedRecords = 0;
 
     while (true) {
-      // Fetch the current page
-      const response = await this.httpClient.request<PaginatedResponse<T>>(this.path, {
+      // Fetch the current page. The live API returns list endpoints as a
+      // bare array rather than the documented { Data, TotalRecords }
+      // envelope (issue #38) — normalize either shape.
+      const raw = await this.httpClient.request<PaginatedResponse<T> | T[]>(this.path, {
         params: {
           ...this.params,
           pageSize: this.pageSize,
           page,
         },
       });
+      const response = normalizeListResponse(raw);
 
       // Get total record count on first page
       if (totalRecords === null) {

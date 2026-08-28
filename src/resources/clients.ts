@@ -5,6 +5,7 @@
 import type { HttpClient } from '../http.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
+import { normalizeListResponse } from '../types/common.js';
 import type {
   Client,
   ClientListParams,
@@ -32,9 +33,10 @@ export class ClientsResource {
    * List clients with optional filtering
    */
   async list(params?: ClientListParams): Promise<ClientListResponse> {
-    return this.httpClient.request<ClientListResponse>('/Clients', {
+    const response = await this.httpClient.request<ClientListResponse | Client[]>('/Clients', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**
@@ -119,9 +121,10 @@ export class LocationsResource {
    * List locations with optional filtering
    */
   async list(params?: LocationListParams): Promise<LocationListResponse> {
-    return this.httpClient.request<LocationListResponse>('/Locations', {
+    const response = await this.httpClient.request<LocationListResponse | Location[]>('/Locations', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**

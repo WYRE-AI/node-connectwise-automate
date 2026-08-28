@@ -5,6 +5,7 @@
 import type { HttpClient } from '../http.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
+import { normalizeListResponse } from '../types/common.js';
 import type {
   Contact,
   ContactListParams,
@@ -27,9 +28,10 @@ export class ContactsResource {
    * List contacts with optional filtering
    */
   async list(params?: ContactListParams): Promise<ContactListResponse> {
-    return this.httpClient.request<ContactListResponse>('/Contacts', {
+    const response = await this.httpClient.request<ContactListResponse | Contact[]>('/Contacts', {
       params: this.buildListParams(params),
     });
+    return normalizeListResponse(response);
   }
 
   /**
