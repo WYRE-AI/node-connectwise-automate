@@ -1,3 +1,12 @@
+## [2.0.4](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.3...v2.0.4) (2026-09-04)
+
+
+### Bug Fixes
+
+* **release:** use inline http.extraheader instead of git remote set-url ([#84](https://github.com/WYRE-AI/node-connectwise-automate/issues/84)) ([aa5c4e4](https://github.com/WYRE-AI/node-connectwise-automate/commit/aa5c4e43f3cf0a1180b10b9764aa1268e10e2998))
+* **security:** resolve dependabot alerts via npm audit fix ([#81](https://github.com/WYRE-AI/node-connectwise-automate/issues/81)) ([b50a7c9](https://github.com/WYRE-AI/node-connectwise-automate/commit/b50a7c90748c0bf045195bbb1f7f8752f9b7da8e))
+
+
 ## [2.0.3](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.2...v2.0.3) (2026-08-28)
 
 
