@@ -1,3 +1,11 @@
+# [2.1.0](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.4...v2.1.0) (2026-09-04)
+
+
+### Features
+
+* **release:** extracted CHANGELOG notes + explicit-https git URLs ([#85](https://github.com/WYRE-AI/node-connectwise-automate/issues/85)) ([b774c1d](https://github.com/WYRE-AI/node-connectwise-automate/commit/b774c1dba6e3d69ab8fa2df54981494cee874273)), closes [node-datto-rmm#77](https://github.com/node-datto-rmm/issues/77) [#84](https://github.com/WYRE-AI/node-connectwise-automate/issues/84)
+
+
 ## [2.0.4](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.0.3...v2.0.4) (2026-09-04)
 
 
