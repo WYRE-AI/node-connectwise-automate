@@ -68,13 +68,23 @@ export class ScriptsResource {
   }
 
   /**
-   * Get a single script's detail.
+   * Get a single script by id (`GET /Scripts/{id}`).
    *
-   * This is the one script route that lives only on API v2
-   * (`GET /api/v2/Scripts/{scriptId}`); v1 has no `GET /Scripts/{id}`. The
-   * returned contract differs from the list row — see `ScriptDetail`.
+   * ConnectWise's published v1 spec omits this route, but live instances serve
+   * it — and at least one hosted instance (2026-09-09) terminates requests to
+   * the v2 equivalent. So this stays on v1; use `getDetail()` for the v2
+   * contract when steps are needed.
    */
-  async get(id: number, options: { includeSteps?: boolean } = {}): Promise<ScriptDetail> {
+  async get(id: number): Promise<Script> {
+    return this.httpClient.request<Script>(`/Scripts/${id}`);
+  }
+
+  /**
+   * Get script detail from API v2 (`GET /api/v2/Scripts/{scriptId}`), the only
+   * route that exposes steps. Prefer `get()` unless those fields are needed —
+   * not every hosted instance serves v2.
+   */
+  async getDetail(id: number, options: { includeSteps?: boolean } = {}): Promise<ScriptDetail> {
     return this.httpClient.request<ScriptDetail>(`/Scripts/${id}`, {
       apiVersion: 'v2',
       params: { includeSteps: options.includeSteps },
