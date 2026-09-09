@@ -1,3 +1,17 @@
+# [4.0.0](https://github.com/WYRE-AI/node-connectwise-automate/compare/v3.0.0...v4.0.0) (2026-09-09)
+
+
+* fix!: read scripts by id from API v1 again; expose the v2 detail route as getDetail() ([#91](https://github.com/WYRE-AI/node-connectwise-automate/issues/91)) ([b60828d](https://github.com/WYRE-AI/node-connectwise-automate/commit/b60828daa44a6dcbd5803e8968914c71f8ce2aa3))
+
+
+### BREAKING CHANGES
+
+* scripts.get() returns Script (string Id) instead of the v2
+ScriptDetail; use scripts.getDetail(id, { includeSteps }) for ScriptDetail.
+
+Claude-Session: https://claude.ai/code/session_01GT7vFGg6QkB8AH5Vf4PzNq
+
+
 # [3.0.0](https://github.com/WYRE-AI/node-connectwise-automate/compare/v2.1.0...v3.0.0) (2026-09-09)
 
 
