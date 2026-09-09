@@ -8,8 +8,10 @@
  *    accept only the generic query options (page, pageSize, condition,
  *    orderBy, includeFields, excludeFields, ids, expand). There are no
  *    script-specific filters such as `name` or `folderId`.
- *  - Script detail lives only on API v2 (GET /api/v2/Scripts/{scriptId}); v1
- *    has no GET /Scripts/{id}.
+ *  - The spec lists script detail only on API v2 (GET /api/v2/Scripts/{scriptId})
+ *    and omits GET /api/v1/Scripts/{id}, but live instances serve the v1 route
+ *    and at least one hosted instance terminates v2 requests — so get() is v1
+ *    and getDetail() is the v2 contract.
  *  - Scripts are launched through POST /Batch/ScriptExecute, and a run's
  *    outcome is only observable through GET /Computers/{id}/ScriptHistory.
  *    Nothing in the spec links the launch to a history row, so results are
@@ -171,7 +173,29 @@ describe('Scripts Resource', () => {
   });
 
   describe('get', () => {
-    it('should read script detail from API v2, which is the only route that has it', async () => {
+    it('should read a script from API v1 GET /Scripts/{id}, the route live instances serve', async () => {
+      const client = createClient();
+      let hit: string | undefined;
+      server.use(
+        http.get(`${API_BASE}/Scripts/:id`, ({ params, request }) => {
+          hit = request.url;
+          return HttpResponse.json({
+            Id: String(params['id']),
+            Name: 'Restart Spooler',
+            Folder: { Id: '3', Name: 'Maintenance' },
+            Parameters: ['ServiceName'],
+          });
+        })
+      );
+
+      const script = await client.scripts.get(42);
+
+      expect(script.Id).toBe('42');
+      expect(script.Folder?.Id).toBe('3');
+      expect(hit).toBe(`${API_BASE}/Scripts/42`);
+    });
+
+    it('getDetail should read script detail from API v2, the only route with steps', async () => {
       const client = createClient();
       let query: URLSearchParams | undefined;
       server.use(
@@ -189,7 +213,7 @@ describe('Scripts Resource', () => {
         })
       );
 
-      const script = await client.scripts.get(42, { includeSteps: true });
+      const script = await client.scripts.getDetail(42, { includeSteps: true });
 
       expect(script.ScriptId).toBe(42);
       expect(script.Folder?.ScriptFolderId).toBe(3);
@@ -200,7 +224,7 @@ describe('Scripts Resource', () => {
     it('should surface a 404 as ConnectWiseAutomateNotFoundError', async () => {
       const client = createClient();
       server.use(
-        http.get(`${API_V2_BASE}/Scripts/:id`, () =>
+        http.get(`${API_BASE}/Scripts/:id`, () =>
           HttpResponse.json({ Message: 'Script not found' }, { status: 404 })
         )
       );

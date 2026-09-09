@@ -109,9 +109,11 @@ const history = await client.computers.commandHistory(123);
 // List scripts (filter with a condition; there are no dedicated name/folder params)
 const scripts = await client.scripts.list({ condition: "Name like '%Cleanup%'" });
 
-// Script detail, served by the v2 route
-const detail = await client.scripts.get(456, { includeSteps: true });
-console.log(detail.ScriptId, detail.Name);
+// Get a script (v1). getDetail() reads the v2 route, which also returns steps
+// but is not served by every hosted instance.
+const script = await client.scripts.get(456);
+console.log(script.Id, script.Name);
+const detail = await client.scripts.getDetail(456, { includeSteps: true });
 
 // Run a script on several computers and wait for each to finish
 const runs = await client.scripts.runAndWait(

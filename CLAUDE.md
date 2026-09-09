@@ -49,3 +49,11 @@ Full audit of every resource against the spec (PR #88). What Automate actually d
 - Still unverified against a live instance: `GET /Computers/{id}` (spec omits it,
   pyconnectwise models it), the `GroupComputer.Id` format, and the numeric
   `PatchActionArgs.EntityType` ordinals.
+
+## Learnings - 2026-09-09
+
+- A spec omission is not proof a route is missing. The v1 swagger has no
+  `GET /Scripts/{id}`, yet live instances serve it, and moving `scripts.get()` to the
+  v2 route broke a customer whose hosted instance terminates v2 requests
+  (`TypeError: terminated`). When a route demonstrably worked in production, keep it;
+  `get()` is v1 and `getDetail()` is the v2 contract.
