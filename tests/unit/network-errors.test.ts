@@ -7,12 +7,26 @@ describe('isTransientNetworkError', () => {
     expect(isTransientNetworkError(new TypeError('terminated'))).toBe(true);
   });
 
-  it('matches fetch failed and a socket cause', () => {
-    const error = new TypeError('fetch failed', {
+  it('matches fetch failed only when the cause is a socket failure', () => {
+    const closed = new TypeError('fetch failed', {
       cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }),
     });
-    expect(isTransientNetworkError(error)).toBe(true);
-    expect(isTransientNetworkError(error.cause)).toBe(true);
+    expect(isTransientNetworkError(closed)).toBe(true);
+    expect(isTransientNetworkError(closed.cause)).toBe(true);
+
+    const terminated = new TypeError('fetch failed', {
+      cause: new Error('terminated'),
+    });
+    expect(isTransientNetworkError(terminated)).toBe(true);
+
+    expect(isTransientNetworkError(new TypeError('fetch failed'))).toBe(false);
+    expect(
+      isTransientNetworkError(
+        new TypeError('fetch failed', {
+          cause: Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' }),
+        })
+      )
+    ).toBe(false);
   });
 
   it.each([

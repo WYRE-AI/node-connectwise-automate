@@ -3,9 +3,10 @@
  *
  * A dropped keep-alive connection has no HTTP status. Undici reports it as
  * `TypeError: terminated` (the body stream closed early) or
- * `TypeError: fetch failed` with a `cause` such as `UND_ERR_SOCKET` /
- * "other side closed". Callers — including command polls and the MCP server —
- * match the whole chain, not only the outer TypeError.
+ * `TypeError: fetch failed` whose `cause` is a socket error (`UND_ERR_SOCKET`,
+ * "other side closed", and the same family). The outer "fetch failed" text is
+ * not enough on its own: undici uses it for DNS, TLS, and refused connections
+ * too, and those requests never reached the server.
  */
 
 import { ConnectWiseAutomateError } from './errors.js';
@@ -20,11 +21,9 @@ const TRANSIENT_CODES: ReadonlySet<string> = new Set([
 
 function messageIsTransient(message: string): boolean {
   const lower = message.toLowerCase();
-  if (
-    /\bterminated\b/.test(lower) ||
-    lower.includes('fetch failed') ||
-    lower.includes('other side closed')
-  ) {
+  // "fetch failed" is undici's wrapper for many causes. It is not a socket
+  // signal by itself; the cause is classified separately.
+  if (/\bterminated\b/.test(lower) || lower.includes('other side closed')) {
     return true;
   }
   return (
