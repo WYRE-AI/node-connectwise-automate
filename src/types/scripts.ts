@@ -398,9 +398,10 @@ export interface ScriptRunResult {
   waitedMs: number;
   /**
    * History polls that still failed with a transient socket error after the
-   * transport retries. A timeout still reports this target.
+   * transport retries. A timeout still reports this target. Always set by
+   * this library; optional so existing result literals keep compiling.
    */
-  pollErrors: number;
+  pollErrors?: number;
 }
 
 /**
