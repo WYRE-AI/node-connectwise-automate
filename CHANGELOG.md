@@ -1,3 +1,12 @@
+## [4.0.1](https://github.com/WYRE-AI/node-connectwise-automate/compare/v4.0.0...v4.0.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **release:** disable http.followRedirects on authenticated git commands ([#93](https://github.com/WYRE-AI/node-connectwise-automate/issues/93)) ([2f7ab96](https://github.com/WYRE-AI/node-connectwise-automate/commit/2f7ab96b552e5cdcf0b236ec580c8ad143ce4537))
+* survive undici socket drops while polling command status ([#99](https://github.com/WYRE-AI/node-connectwise-automate/issues/99)) ([66a531f](https://github.com/WYRE-AI/node-connectwise-automate/commit/66a531f5e29883d4fc0691662cb237ab19c29ee7))
+
+
 # [4.0.0](https://github.com/WYRE-AI/node-connectwise-automate/compare/v3.0.0...v4.0.0) (2026-09-09)
 
 
