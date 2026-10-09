@@ -25,7 +25,10 @@ export {
   ConnectWiseAutomateValidationError,
   ConnectWiseAutomateRateLimitError,
   ConnectWiseAutomateServerError,
+  ConnectWiseAutomateAmbiguousRequestError,
 } from './errors.js';
+
+export { isTransientNetworkError } from './network-errors.js';
 
 // Types
 export * from './types/index.js';

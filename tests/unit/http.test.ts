@@ -14,11 +14,14 @@ import { AuthManager } from '../../src/auth.js';
 import { RateLimiter } from '../../src/rate-limiter.js';
 import { buildBaseListParams } from '../../src/params.js';
 import {
+  ConnectWiseAutomateAmbiguousRequestError,
   ConnectWiseAutomateError,
   ConnectWiseAutomateNotFoundError,
   ConnectWiseAutomateServerError,
   ConnectWiseAutomateValidationError,
 } from '../../src/errors.js';
+import { apiDispatcher, API_DISPATCHER_OPTIONS } from '../../src/http.js';
+import { isTransientNetworkError } from '../../src/network-errors.js';
 import type { ResolvedConfig } from '../../src/config.js';
 
 const config = {
@@ -47,6 +50,19 @@ function realResponse(body: string, init: ResponseInit = {}): Response {
     status: 200,
     headers: { 'content-type': 'application/json' },
     ...init,
+  });
+}
+
+/** A 200 whose body errors while being read — undici's mid-transfer drop. */
+function bodyThatErrors(error: Error): Response {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.error(error);
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
   });
 }
 
@@ -112,7 +128,7 @@ describe('HttpClient response handling', () => {
     vi.mocked(fetch).mockResolvedValue(
       realResponse('{"Message":"boom"}', { status: 503 })
     );
-    // 5xx retries once, then throws — both responses must be fresh.
+    // 5xx is retried up to three attempts, then throws. Each response must be fresh.
     vi.mocked(fetch).mockResolvedValueOnce(realResponse('{"Message":"boom"}', { status: 503 }));
     vi.mocked(fetch).mockResolvedValueOnce(realResponse('{"Message":"boom"}', { status: 503 }));
     const err = await makeClient()
@@ -308,15 +324,102 @@ describe('HttpClient transport contract', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   }, 15000);
 
-  it('re-throws the raw transport error for a POST without retrying', async () => {
+  it('does not retry a POST that dies at the socket, and names the queue uncertainty', async () => {
     const terminated = new TypeError('terminated');
     vi.mocked(fetch).mockRejectedValue(terminated);
     const err = await makeClient()
-      .request('/Computers/1/CommandExecute', { method: 'POST', body: {} })
+      .request('/Computers/1/CommandExecute', {
+        method: 'POST',
+        body: { ComputerId: 1, Command: { Id: '2' } },
+      })
       .catch((e: unknown) => e);
-    // Consumers (connectwise-automate-mcp) detect this exact error; keep it intact.
-    expect(err).toBe(terminated);
+    expect(err).toBeInstanceOf(ConnectWiseAutomateAmbiguousRequestError);
+    expect((err as Error).message).toMatch(/may or may not have been queued/);
+    expect((err as Error).message).toMatch(/computer id 1/);
+    expect((err as Error).message).toMatch(/command id 2/);
+    expect((err as Error).message).toMatch(/not retried/);
+    expect((err as ConnectWiseAutomateAmbiguousRequestError).id).toBeUndefined();
+    expect((err as Error).cause).toBe(terminated);
+    // The MCP matches this wrapper via the cause chain.
+    expect(isTransientNetworkError(err)).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('includes a known execution id when a non-idempotent request already carried one', async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError('terminated'));
+    const err = await makeClient()
+      .request('/Computers/1/CommandExecute', {
+        method: 'POST',
+        body: { Id: 4711, ComputerId: 1 },
+      })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConnectWiseAutomateAmbiguousRequestError);
+    expect((err as ConnectWiseAutomateAmbiguousRequestError).id).toBe(4711);
+    expect((err as Error).message).toContain('id 4711');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a PATCH that dies at the socket', async () => {
+    vi.mocked(fetch).mockRejectedValue(
+      Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })
+    );
+    const err = await makeClient()
+      .request('/Clients/1', { method: 'PATCH', body: [] })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConnectWiseAutomateAmbiguousRequestError);
+    expect((err as Error).message).toMatch(/may or may not have been processed/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a GET whose body is cut off mid-read', async () => {
+    const terminated = new TypeError('terminated');
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(bodyThatErrors(terminated))
+      .mockResolvedValueOnce(realResponse('[{"Id":1}]'));
+    const result = await makeClient().request('/Computers');
+    expect(result).toEqual([{ Id: 1 }]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  }, 15000);
+
+  it('retries a GET on a socket reset carried by error.cause, then stops after three attempts', async () => {
+    const reset = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }),
+    });
+    vi.mocked(fetch).mockRejectedValue(reset);
+    const err = await makeClient()
+      .request('/Computers')
+      .catch((e: unknown) => e);
+    // Idempotent reads rethrow the socket error itself so a poll can continue.
+    expect(err).toBe(reset);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  }, 15000);
+
+  it('retries a PUT on ECONNRESET', async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))
+      .mockResolvedValueOnce(realResponse('{"Id":1}'));
+    const result = await makeClient().request('/Clients/1', { method: 'PUT', body: { Name: 'A' } });
+    expect(result).toEqual({ Id: 1 });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  }, 15000);
+
+  it('does not retry a GET that failed for a non-network reason', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('boom'));
+    await expect(makeClient().request('/Computers')).rejects.toThrow('boom');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends requests through the keep-alive dispatcher', async () => {
+    vi.mocked(fetch).mockResolvedValue(realResponse('[]'));
+    await makeClient().request('/Computers');
+    const init = lastCall().init as RequestInit & { dispatcher?: unknown };
+    expect(init.dispatcher).toBe(apiDispatcher);
+    expect(API_DISPATCHER_OPTIONS).toEqual({
+      keepAliveTimeout: 1_000,
+      keepAliveMaxTimeout: 1_000,
+      connections: 10,
+      pipelining: 1,
+    });
   });
 
   it('retries a POST on 429 because the request was never processed', async () => {

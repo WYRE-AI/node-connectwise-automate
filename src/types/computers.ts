@@ -213,6 +213,12 @@ export interface CommandRunResult {
   output?: string;
   /** How long polling ran, in milliseconds */
   waitedMs: number;
+  /**
+   * Status polls that still failed with a transient socket error after the
+   * transport retries. The execution id is kept either way. Always set by
+   * this library; optional so existing result literals keep compiling.
+   */
+  pollErrors?: number;
 }
 
 /**

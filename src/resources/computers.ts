@@ -3,6 +3,7 @@
  */
 
 import type { HttpClient } from '../http.js';
+import { isTransientNetworkError } from '../network-errors.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
 import type {
@@ -131,7 +132,14 @@ export class ComputersResource {
    * the same command can be mistaken for this one.
    *
    * Resolves with `completed: false` if the timeout elapses; the command keeps
-   * running and its row can be re-read later via `commandExecutions`.
+   * running and its row can be re-read later via `commandExecutions`. The
+   * returned `execution.Id` is the id the launch gave back, including when
+   * every poll failed.
+   *
+   * A dropped socket on a status GET is not fatal: those reads are idempotent
+   * and are counted in `pollErrors` until the deadline. The launch POST is
+   * not retried here — a socket error on it throws, because the command may
+   * or may not already be queued.
    */
   async executeCommandAndWait(
     id: number,
@@ -144,6 +152,7 @@ export class ComputersResource {
     let execution = await this.executeCommand(id, command);
     const executionId = execution.Id;
     const startedAt = Date.now();
+    let pollErrors = 0;
 
     while (
       executionId !== undefined &&
@@ -152,8 +161,18 @@ export class ComputersResource {
     ) {
       await delay(pollIntervalMs);
 
-      const rows = await this.commandExecutions(id, { ids: String(executionId) });
-      execution = rows.find((row) => row.Id === executionId) ?? execution;
+      try {
+        const rows = await this.commandExecutions(id, { ids: String(executionId) });
+        execution = rows.find((row) => row.Id === executionId) ?? execution;
+      } catch (error) {
+        if (!isTransientNetworkError(error)) {
+          throw error;
+        }
+        // Keep the row from the launch (it carries the execution id) and
+        // try again until the deadline. The transport layer has already
+        // retried this GET; this counts rounds that still failed.
+        pollErrors += 1;
+      }
     }
 
     return {
@@ -162,6 +181,7 @@ export class ComputersResource {
       status: execution.Status,
       output: execution.Output,
       waitedMs: Date.now() - startedAt,
+      pollErrors,
     };
   }
 

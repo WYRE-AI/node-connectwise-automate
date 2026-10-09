@@ -7,11 +7,14 @@
  * under v2.
  */
 
+import { Agent, type Dispatcher } from 'undici';
 import type { ResolvedConfig } from './config.js';
 import type { AuthManager } from './auth.js';
 import type { RateLimiter } from './rate-limiter.js';
+import { isTransientNetworkError } from './network-errors.js';
 import {
   ConnectWiseAutomateError,
+  ConnectWiseAutomateAmbiguousRequestError,
   ConnectWiseAutomateAuthenticationError,
   ConnectWiseAutomateForbiddenError,
   ConnectWiseAutomateNotFoundError,
@@ -49,8 +52,36 @@ export interface RequestOptions {
  */
 const IDEMPOTENT_METHODS: ReadonlySet<string> = new Set(['GET', 'PUT', 'DELETE']);
 
-/** Pause before re-sending an idempotent request after a 5xx or transport failure */
+/**
+ * Total attempts for an idempotent call, including the first. Two retries
+ * cover a stale keep-alive socket without stretching a command poll's deadline
+ * across an unbounded reconnect loop.
+ */
+const MAX_IDEMPOTENT_ATTEMPTS = 3;
+
+/** Base pause before re-sending an idempotent request. Doubles each retry. */
 const SERVER_ERROR_RETRY_DELAY_MS = 1000;
+
+/**
+ * Shared dispatcher for API calls.
+ *
+ * Command and script polls wait 3s between GETs. Undici's default
+ * `keepAliveTimeout` is 4s, so the next poll reuses a socket the peer (or a
+ * WAF in front of hosted Automate) has often already closed, and the read
+ * dies with `TypeError: terminated`. Closing idle sockets after 1s forces a
+ * fresh connection. `keepAliveMaxTimeout` is the same value so a server
+ * `Keep-Alive` hint cannot stretch the idle timeout back out. Pipelining
+ * stays at 1 (one request at a time per connection) and `connections` caps
+ * the per-origin pool.
+ */
+export const API_DISPATCHER_OPTIONS = {
+  keepAliveTimeout: 1_000,
+  keepAliveMaxTimeout: 1_000,
+  connections: 10,
+  pipelining: 1,
+} as const;
+
+export const apiDispatcher: Dispatcher = new Agent(API_DISPATCHER_OPTIONS);
 
 /**
  * HTTP client for making authenticated requests to the ConnectWise Automate API
@@ -137,26 +168,41 @@ export class HttpClient {
     // Record the request
     this.rateLimiter.recordRequest();
 
-    let response: Response;
     try {
-      response = await fetch(url, {
+      // `dispatcher` is undici's extension to RequestInit. Reading the body
+      // here, not in handleResponse, is deliberate: a socket that closes
+      // mid-body rejects `response.text()` with TypeError('terminated'), and
+      // that rejection has to land in this catch to be retried.
+      const response = await fetch(url, {
         method,
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
+        dispatcher: apiDispatcher,
+      } as RequestInit);
+      const rawBody = await response.text();
+      return await this.handleResponse<T>(
+        response,
+        rawBody,
+        url,
+        method,
+        body,
+        skipAuth,
+        retryCount,
+        isRetryAfter401
+      );
     } catch (error) {
-      // No response at all: DNS failure, connection reset, or the socket
-      // closed mid-transfer (undici's `TypeError: terminated`). Re-send once
-      // for idempotent methods; otherwise surface the raw error untouched so
-      // callers can classify it themselves.
-      if (this.canRetry(method, retryCount)) {
-        await this.sleep(SERVER_ERROR_RETRY_DELAY_MS);
+      if (isTransientNetworkError(error) && this.canRetry(method, retryCount)) {
+        await this.sleep(this.retryDelayMs(retryCount));
         return this.executeRequest<T>(url, method, body, skipAuth, retryCount + 1, isRetryAfter401);
+      }
+      // The server may already have queued the command. Retrying would run it
+      // twice, so say so and stop. The original socket error stays on `cause`
+      // for isTransientNetworkError.
+      if (isTransientNetworkError(error) && !IDEMPOTENT_METHODS.has(method)) {
+        throw ambiguousRequestError(method, url, body, error);
       }
       throw error;
     }
-
-    return this.handleResponse<T>(response, url, method, body, skipAuth, retryCount, isRetryAfter401);
   }
 
   /**
@@ -164,6 +210,7 @@ export class HttpClient {
    */
   private async handleResponse<T>(
     response: Response,
+    rawBody: string,
     url: string,
     method: string,
     body: unknown,
@@ -171,12 +218,11 @@ export class HttpClient {
     retryCount: number,
     isRetryAfter401: boolean
   ): Promise<T> {
-    // Read the body EXACTLY once, as text, for every path. A fetch Response
-    // body is a one-shot stream: response.json() followed by response.text()
-    // in a catch throws "Body is unusable: Body has already been read",
-    // which masked the real (often non-JSON, e.g. WAF/proxy HTML) response
-    // on hosted Automate instances (connectwise-automate-mcp#54).
-    const rawBody = await response.text();
+    // The body was read exactly once, as text, by executeRequest. A fetch
+    // Response body is a one-shot stream: response.json() followed by
+    // response.text() in a catch throws "Body is unusable: Body has already
+    // been read", which masked the real (often non-JSON, e.g. WAF/proxy HTML)
+    // response on hosted Automate instances (connectwise-automate-mcp#54).
     let parsedBody: unknown;
     let bodyIsJson = false;
     try {
@@ -261,7 +307,7 @@ export class HttpClient {
       default:
         if (response.status >= 500) {
           if (this.canRetry(method, retryCount)) {
-            await this.sleep(SERVER_ERROR_RETRY_DELAY_MS);
+            await this.sleep(this.retryDelayMs(retryCount));
             return this.executeRequest<T>(url, method, body, skipAuth, retryCount + 1, isRetryAfter401);
           }
           throw new ConnectWiseAutomateServerError(
@@ -279,10 +325,17 @@ export class HttpClient {
   }
 
   /**
-   * Whether a failed request may be re-sent: only idempotent methods, once.
+   * Whether a failed idempotent request may be re-sent. `retryCount` is how
+   * many retries have already happened, so the first call (0) and the second
+   * (1) may continue and the third attempt is the last.
    */
   private canRetry(method: string, retryCount: number): boolean {
-    return IDEMPOTENT_METHODS.has(method) && retryCount === 0;
+    return IDEMPOTENT_METHODS.has(method) && retryCount < MAX_IDEMPOTENT_ATTEMPTS - 1;
+  }
+
+  /** Exponential backoff: 1s, then 2s. */
+  private retryDelayMs(retryCount: number): number {
+    return SERVER_ERROR_RETRY_DELAY_MS * 2 ** retryCount;
   }
 
   /**
@@ -344,4 +397,75 @@ export class HttpClient {
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+}
+
+const QUEUED_ROUTES = /\/CommandExecute|\/ScriptExecute|\/ScheduledScripts/i;
+
+/**
+ * Ids already known from the request body. The execution id (`Id`) is the one
+ * a caller can poll; the others only explain which target the lost POST was for.
+ */
+function describeKnownIds(body: unknown): { id?: number | string; detail: string } {
+  if (typeof body !== 'object' || body === null) {
+    return { detail: '' };
+  }
+  const record = body as Record<string, unknown>;
+  const parts: string[] = [];
+  let executionId: number | string | undefined;
+
+  const id = record['Id'];
+  if (typeof id === 'number' || typeof id === 'string') {
+    executionId = id;
+    parts.push(`id ${id}`);
+  }
+
+  const computerId = record['ComputerId'];
+  if (typeof computerId === 'number' || typeof computerId === 'string') {
+    parts.push(`computer id ${computerId}`);
+  }
+
+  const scriptId = record['ScriptId'];
+  if (typeof scriptId === 'number' || typeof scriptId === 'string') {
+    parts.push(`script id ${scriptId}`);
+  }
+
+  const command = record['Command'];
+  if (typeof command === 'object' && command !== null) {
+    const commandId = (command as Record<string, unknown>)['Id'];
+    if (typeof commandId === 'number' || typeof commandId === 'string') {
+      parts.push(`command id ${commandId}`);
+    }
+  }
+
+  const entityIds = record['EntityIds'];
+  if (Array.isArray(entityIds) && entityIds.length > 0) {
+    const shown = entityIds.slice(0, 10).map((value) => String(value)).join(', ');
+    const extra = entityIds.length > 10 ? ', …' : '';
+    parts.push(`entity ids ${shown}${extra}`);
+  }
+
+  return {
+    ...(executionId !== undefined ? { id: executionId } : {}),
+    detail: parts.length > 0 ? ` (${parts.join(', ')})` : '',
+  };
+}
+
+function ambiguousRequestError(
+  method: string,
+  url: string,
+  body: unknown,
+  cause: unknown
+): ConnectWiseAutomateAmbiguousRequestError {
+  const known = describeKnownIds(body);
+  const outcome = QUEUED_ROUTES.test(url)
+    ? 'The command may or may not have been queued'
+    : 'The request may or may not have been processed';
+  const message =
+    `Connection interrupted during ${method} ${url}. ` +
+    `${outcome}${known.detail}. ` +
+    'The request was not retried because a retry can run it twice.';
+  return new ConnectWiseAutomateAmbiguousRequestError(message, {
+    cause,
+    ...(known.id !== undefined ? { id: known.id } : {}),
+  });
 }
