@@ -96,3 +96,30 @@ export class ConnectWiseAutomateServerError extends ConnectWiseAutomateError {
     Object.setPrototypeOf(this, ConnectWiseAutomateServerError.prototype);
   }
 }
+
+/**
+ * A POST or PATCH failed at the socket, so it is unknown whether the server
+ * accepted it. The call is never retried: a command or script launch that did
+ * reach Automate would otherwise run twice.
+ *
+ * `id` is set when the request already carried an execution id. Computer,
+ * script, and command ids that were known are named in the message instead,
+ * so a missing `id` means the execution id was not known — not that the
+ * target was unknown.
+ */
+export class ConnectWiseAutomateAmbiguousRequestError extends ConnectWiseAutomateError {
+  /** Execution id, when the request already included one. */
+  readonly id?: number | string;
+
+  constructor(message: string, options?: { cause?: unknown; id?: number | string }) {
+    super(message, 0);
+    this.name = 'ConnectWiseAutomateAmbiguousRequestError';
+    if (options?.id !== undefined) {
+      this.id = options.id;
+    }
+    if (options?.cause !== undefined) {
+      this.cause = options.cause;
+    }
+    Object.setPrototypeOf(this, ConnectWiseAutomateAmbiguousRequestError.prototype);
+  }
+}

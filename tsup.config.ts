@@ -11,4 +11,6 @@ export default defineConfig({
   treeshake: true,
   target: 'node22',
   outDir: 'dist',
+  // Keep undici external so the installed package supplies the dispatcher.
+  external: ['undici'],
 });

@@ -3,6 +3,7 @@
  */
 
 import type { HttpClient } from '../http.js';
+import { isTransientNetworkError } from '../network-errors.js';
 import type { PaginatedIterable } from '../pagination.js';
 import { createPaginatedIterable } from '../pagination.js';
 import type { BaseListParams } from '../types/common.js';
@@ -189,7 +190,10 @@ export class ScriptsResource {
    *
    * A target whose timeout elapses comes back with `completed: false`; the
    * script is still running server-side and can be picked up later from
-   * `historyForComputer`.
+   * `historyForComputer`. A dropped socket on a history GET is counted in
+   * `pollErrors` and does not abandon the target. The launch POST is not
+   * retried: if it fails at the socket, the error says the script may or
+   * may not have been queued.
    */
   async runAndWait(
     computerIds: number[],
@@ -238,15 +242,29 @@ export class ScriptsResource {
             launchMessage: refusal.ResultDetails?.Message,
             completed: false,
             waitedMs: 0,
+            pollErrors: 0,
           };
         }
 
         const seen = baselines.get(computerId) ?? new Set();
+        let pollErrors = 0;
 
         while (Date.now() - startedAt < timeoutMs) {
           await delay(pollIntervalMs);
 
-          const history = await recentHistory(computerId);
+          let history: ScriptHistoryEntry[];
+          try {
+            history = await recentHistory(computerId);
+          } catch (error) {
+            if (!isTransientNetworkError(error)) {
+              throw error;
+            }
+            // The launch POST already happened. A dropped status read must
+            // not discard the target; keep polling until the deadline.
+            pollErrors += 1;
+            continue;
+          }
+
           const match = history.find(
             (entry) =>
               !seen.has(entry.Id) &&
@@ -263,6 +281,7 @@ export class ScriptsResource {
               state: match.State,
               diagnosticMessage: match.DiagnosticMessage,
               waitedMs: Date.now() - startedAt,
+              pollErrors,
             };
           }
         }
@@ -272,6 +291,7 @@ export class ScriptsResource {
           launched: true,
           completed: false,
           waitedMs: Date.now() - startedAt,
+          pollErrors,
         };
       })
     );

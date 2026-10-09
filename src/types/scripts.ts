@@ -396,6 +396,11 @@ export interface ScriptRunResult {
   diagnosticMessage?: string;
   /** How long polling ran, in milliseconds */
   waitedMs: number;
+  /**
+   * History polls that still failed with a transient socket error after the
+   * transport retries. A timeout still reports this target.
+   */
+  pollErrors: number;
 }
 
 /**
