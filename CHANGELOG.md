@@ -1,3 +1,11 @@
+## [4.0.2](https://github.com/WYRE-AI/node-connectwise-automate/compare/v4.0.1...v4.0.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **dependabot:** ungroup msw/vitest majors from auto-merged dev-dependencies ([#104](https://github.com/WYRE-AI/node-connectwise-automate/issues/104)) ([6456d0f](https://github.com/WYRE-AI/node-connectwise-automate/commit/6456d0f06a77893cda00acc6c60b3bfee41609ef))
+
+
 ## [4.0.1](https://github.com/WYRE-AI/node-connectwise-automate/compare/v4.0.0...v4.0.1) (2026-10-09)
 
 
