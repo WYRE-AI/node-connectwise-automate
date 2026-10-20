@@ -40,7 +40,9 @@ function serve(method: 'get' | 'post' | 'put' | 'delete', path: string, response
   server.use(
     http[method](`${API_V2}${path}`, async ({ request }) => {
       seen.url = request.url;
-      seen.body = request.body ? await request.json() : undefined;
+      // msw 3 gives bodiless requests (e.g. DELETE) an empty stream, so parse only non-empty text.
+      const text = await request.text();
+      seen.body = text ? JSON.parse(text) : undefined;
       return response === undefined ? new HttpResponse(null, { status: 204 }) : HttpResponse.json(response);
     })
   );
