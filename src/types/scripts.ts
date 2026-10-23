@@ -324,15 +324,32 @@ export interface ScriptOfflineActionFlags {
   OnlyRunsOnOfflineAgents?: boolean;
 }
 
+/** Schedule settings from the official Batch swagger. */
+export interface ScriptScheduleFrequency {
+  ScriptScheduleFrequencyId?: number;
+  Name?: string;
+}
+
+export interface ScriptScheduleSettings {
+  ScriptScheduleFrequency?: ScriptScheduleFrequency;
+  MinutelySettings?: Record<string, unknown>;
+  HourlySettings?: Record<string, unknown>;
+  DailySettings?: Record<string, unknown>;
+  WeeklySettings?: Record<string, unknown>;
+  MonthlySettings?: Record<string, unknown>;
+}
+
+export interface ScriptDistributionWindow {
+  DistributionWindowType?: { DistributionWindowTypeId?: number; Name?: string };
+  Amount?: number;
+}
+
 /**
  * Request body for `POST /Batch/ScriptExecute`
  * (`Automate.Api.Domain.Contracts.BatchScripts.ScheduleScriptBatchRequest`) —
  * the multi-target script launch. One call covers every target and reports
  * per-target acceptance.
  *
- * The spec also accepts `Schedule` and `DistributionWindow` (recurrence
- * settings shared with `POST /Batch/ScriptSchedule`); they are not modelled
- * here.
  */
 export interface ScriptExecuteBatchRequest {
   /** Kind of entity the ids refer to (default: `Computer`) */
@@ -353,7 +370,22 @@ export interface ScriptExecuteBatchRequest {
   StartDate?: string;
   ExpireDate?: string;
   IncludeSubGroups?: boolean;
+  Schedule?: ScriptScheduleSettings;
+  DistributionWindow?: ScriptDistributionWindow;
 }
+
+/** Explicit wire body produced by buildScriptExecuteBatchBody. */
+export type ScriptExecuteBatchBody = Omit<ScriptExecuteBatchRequest,
+  'EntityType' | 'Parameters' | 'Priority' | 'OfflineActionFlags' | 'UseAgentTime' | 'StartDate' | 'Schedule'
+> & {
+  EntityType: ScriptTargetEntityType;
+  Parameters: ScriptParameterValue[];
+  Priority: number;
+  OfflineActionFlags: Required<ScriptOfflineActionFlags>;
+  UseAgentTime: boolean;
+  StartDate: string;
+  Schedule: ScriptScheduleSettings;
+};
 
 /**
  * Per-target outcome of the launch itself, not of the script run
