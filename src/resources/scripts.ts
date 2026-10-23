@@ -2,6 +2,7 @@
  * Scripts resource operations
  */
 
+import { buildScriptExecuteBatchBody } from './script-execute-body.js';
 import type { HttpClient } from '../http.js';
 import { isTransientNetworkError } from '../network-errors.js';
 import type { PaginatedIterable } from '../pagination.js';
@@ -137,7 +138,7 @@ export class ScriptsResource {
       '/Batch/ScriptExecute',
       {
         method: 'POST',
-        body: { EntityType: 'Computer', ...request },
+        body: buildScriptExecuteBatchBody(request),
       }
     );
   }

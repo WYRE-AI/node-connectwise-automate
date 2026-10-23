@@ -32,3 +32,5 @@ export { isTransientNetworkError } from './network-errors.js';
 
 // Types
 export * from './types/index.js';
+
+export { buildScriptExecuteBatchBody, DEFAULT_SCRIPT_PRIORITY, SCRIPT_SCHEDULE_FREQUENCY_ONCE } from './resources/script-execute-body.js';

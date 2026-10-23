@@ -343,12 +343,19 @@ export class HttpClient {
    * (`{ "Message": "..." }`), if there is one.
    */
   private extractServerMessage(responseBody: unknown): string | undefined {
+    if (typeof responseBody === 'string') {
+      return responseBody.trim().slice(0, 500) || undefined;
+    }
     if (typeof responseBody !== 'object' || responseBody === null) {
       return undefined;
     }
     const body = responseBody as Record<string, unknown>;
-    const message = body['Message'] ?? body['message'];
-    return typeof message === 'string' && message.trim() !== '' ? message : undefined;
+    const messages = ['Message', 'message', 'error', 'error_description', 'ExceptionMessage']
+      .map(key => body[key])
+      .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+      .map(value => value.trim());
+    messages.push(...this.parseValidationErrors(responseBody).map(error => error.message));
+    return messages.length ? messages.join('; ').slice(0, 500) : undefined;
   }
 
   /**

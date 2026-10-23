@@ -307,7 +307,7 @@ describe('Scripts Resource', () => {
   });
 
   describe('executeBatch', () => {
-    it('should default the entity type to Computer and pass the spec body through', async () => {
+    it('should send the full explicit batch body', async () => {
       const client = createClient();
       const state = mockRun({});
 
@@ -324,9 +324,43 @@ describe('Scripts Resource', () => {
         EntityIds: [1, 2],
         ScriptId: 42,
         Parameters: [{ Key: 'ServiceName', Value: 'Spooler' }],
-        OfflineActionFlags: { SkipsOfflineAgents: true },
+        OfflineActionFlags: { SkipsOfflineAgents: true, WakesOfflineAgents: false, OnlyRunsOnOfflineAgents: false },
         Priority: 2,
+        UseAgentTime: false,
+        StartDate: expect.stringMatching(/^\d{4}-/),
+        Schedule: { ScriptScheduleFrequency: { ScriptScheduleFrequencyId: 1 } },
       });
+    });
+    it.each([
+      HttpResponse.json({ Message: 'Automate rejected script' }, { status: 500 }),
+      HttpResponse.text('  Automate rejected script  ', { status: 500 }),
+      ...[
+        { message: 'Automate rejected script' },
+        { error: 'server_error', error_description: 'Automate rejected script' },
+        { ExceptionMessage: 'Automate rejected script' },
+        { Errors: [{ Message: 'Automate rejected script' }] },
+        { ModelState: { ScriptId: ['Automate rejected script'] } },
+      ].map(body => HttpResponse.json(body, { status: 500 })),
+    ])('surfaces a 500 message and status without retrying POST', async response => {
+      let requests = 0;
+      server.use(http.post(`${API_BASE}/Batch/ScriptExecute`, () => {
+        requests++;
+        return response.clone();
+      }));
+      await expect(createClient().scripts.executeBatch({ EntityIds: [1], ScriptId: 42 }))
+        .rejects.toMatchObject({ statusCode: 500, message: expect.stringContaining('Automate rejected script') });
+      expect(requests).toBe(1);
+    });
+
+    it('rejects invalid input before making a request', async () => {
+      let requests = 0;
+      server.use(http.post(`${API_BASE}/Batch/ScriptExecute`, () => {
+        requests++;
+        return HttpResponse.json({});
+      }));
+      await expect(createClient().scripts.executeBatch({ EntityIds: [], ScriptId: 42 }))
+        .rejects.toMatchObject({ name: 'ConnectWiseAutomateValidationError' });
+      expect(requests).toBe(0);
     });
   });
 
