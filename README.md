@@ -121,7 +121,7 @@ const runs = await client.scripts.runAndWait(
   {
     ScriptId: 456,
     Parameters: [{ Key: 'Param1', Value: 'value1' }],
-    Priority: 2,
+    Priority: 5, // SDK default; priority scale pending verification
     OfflineActionFlags: { SkipsOfflineAgents: true },
   },
   { timeoutMs: 120_000 }
@@ -138,6 +138,44 @@ const history = await client.scripts.historyForComputer(123, {
 });
 const running = await client.scripts.runningOnComputer(123);
 ```
+
+`executeBatch()` and `runAndWait()` send the full explicit batch body. For
+`{ ScriptId: 456, EntityIds: [123] }`, the JSON is:
+
+```json
+{
+  "EntityType": "Computer",
+  "EntityIds": [123],
+  "ScriptId": 456,
+  "Parameters": [],
+  "Priority": 5,
+  "OfflineActionFlags": {
+    "SkipsOfflineAgents": false,
+    "WakesOfflineAgents": false,
+    "OnlyRunsOnOfflineAgents": false
+  },
+  "UseAgentTime": false,
+  "StartDate": "<current time as an ISO timestamp>",
+  "Schedule": { "ScriptScheduleFrequency": { "ScriptScheduleFrequencyId": 1 } }
+}
+```
+
+Every default can be overridden. Supply exactly one of `ScriptId` or `ScriptGuid`
+(the absent identifier is omitted), and a non-empty array of positive integer
+`EntityIds`; invalid input throws `ConnectWiseAutomateValidationError` before the
+POST. `ExpireDate`, `DistributionWindow`, and `IncludeSubGroups` are sent only
+when provided. Partial offline flags default individually to `false`.
+
+The package exports `buildScriptExecuteBatchBody(request, now?)` for inspecting
+the body without sending it, plus `DEFAULT_SCRIPT_PRIORITY` (5) and
+`SCRIPT_SCHEDULE_FREQUENCY_ONCE` (1). An injected `Date` makes `StartDate`
+deterministic. POSTs are not retried on 5xx, preventing duplicate launches;
+errors expose `statusCode` and Automate's response message.
+
+**Pending verification (WYREAI-573):** Field names come from the official swagger.
+The priority scale, frequency id 1 meaning "once / run now", and default offline
+flags mirror the Control Center "run now" request but remain pending verification
+against a captured Control Center payload.
 
 Automate has no synchronous "run script" call and returns no job handle. `runAndWait()` launches through `POST /Batch/ScriptExecute`, then polls each computer's script history for a new `Completed` row for that script. A target that outlives `timeoutMs` comes back with `completed: false` while the script keeps running server-side; pick it up later with `historyForComputer()`.
 
