@@ -139,6 +139,32 @@ const history = await client.scripts.historyForComputer(123, {
 const running = await client.scripts.runningOnComputer(123);
 ```
 
+`executeBatch()` and `runAndWait()` send the full explicit `ScheduleScriptBatchRequest` body. For `{ ScriptId: 456, EntityIds: [123] }`, the JSON is:
+
+```json
+{
+  "EntityType": "Computer",
+  "EntityIds": [123],
+  "ScriptId": 456,
+  "Parameters": [],
+  "Priority": 2,
+  "OfflineActionFlags": {
+    "SkipsOfflineAgents": false,
+    "WakesOfflineAgents": false,
+    "OnlyRunsOnOfflineAgents": false
+  },
+  "UseAgentTime": false,
+  "StartDate": "<current time as an ISO timestamp>",
+  "Schedule": { "ScriptScheduleFrequency": { "ScriptScheduleFrequencyId": 1 } }
+}
+```
+
+Every default can be overridden. Supply exactly one of `ScriptId` or `ScriptGuid` (the absent identifier is omitted), and a non-empty array of positive integer `EntityIds`; invalid input throws `ConnectWiseAutomateValidationError` before the POST. `ExpireDate`, `DistributionWindow`, and `IncludeSubGroups` are sent only when provided. Partial offline flags default individually to `false`.
+
+The package exports `buildScriptExecuteBatchBody(request, now?)` for inspecting the body without sending it, plus `DEFAULT_SCRIPT_PRIORITY` (2, matching the MCP high=1 / normal=2 / low=3 mapping) and `SCRIPT_SCHEDULE_FREQUENCY_ONCE` (1). An injected `Date` makes `StartDate` deterministic. POSTs are not retried on 5xx, preventing duplicate launches; errors expose `statusCode` and Automate's response message.
+
+Field names come from the official Automate swagger. Priority 2 is this library's "normal" default (not 5). Frequency id 1 is sent for a run-now / once schedule: Once is the only swagger frequency with no sibling `*Settings` object, and 1 is the first id.
+
 Automate has no synchronous "run script" call and returns no job handle. `runAndWait()` launches through `POST /Batch/ScriptExecute`, then polls each computer's script history for a new `Completed` row for that script. A target that outlives `timeoutMs` comes back with `completed: false` while the script keeps running server-side; pick it up later with `historyForComputer()`.
 
 ### Clients and locations
