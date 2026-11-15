@@ -345,13 +345,13 @@ export interface ScriptDistributionWindow {
 }
 
 /**
- * Request body for `POST /Batch/ScriptExecute`
- * (`Automate.Api.Domain.Contracts.BatchScripts.ScheduleScriptBatchRequest`) —
- * the multi-target script launch. One call covers every target and reports
- * per-target acceptance.
+ * Public request for `POST /Batch/ScriptSchedule`
+ * (`Automate.Api.Domain.Contracts.BatchScripts.ScheduleScriptBatchRequest`).
+ * Callers keep the historical SDK shape (string EntityType, numeric ids);
+ * `buildScriptExecuteBatchBody` maps that to the Control Center wire form.
  *
- * Priority is a bare int32 in the swagger (no enum). This library and the
- * MCP map high=1, normal=2, low=3; omitted values default to 2 (normal).
+ * Priority is a bare int32 in the swagger (no enum). Omitted values default
+ * to 12 (Control Center "Run now"); callers may still pass 1/2/3.
  */
 export interface ScriptExecuteBatchRequest {
   /** Kind of entity the ids refer to (default: `Computer`) */
@@ -366,7 +366,7 @@ export interface ScriptExecuteBatchRequest {
   Parameters?: ScriptParameterValue[];
   /** Offline-agent behaviour */
   OfflineActionFlags?: ScriptOfflineActionFlags;
-  /** Priority — high=1, normal=2, low=3; default 2 */
+  /** Priority — Control Center default is 12; high=1 / normal=2 / low=3 still accepted */
   Priority?: number;
   UseAgentTime?: boolean;
   StartDate?: string;
@@ -376,18 +376,29 @@ export interface ScriptExecuteBatchRequest {
   DistributionWindow?: ScriptDistributionWindow;
 }
 
-/** Explicit wire body produced by buildScriptExecuteBatchBody. */
-export type ScriptExecuteBatchBody = Omit<ScriptExecuteBatchRequest,
-  'EntityType' | 'Parameters' | 'Priority' | 'OfflineActionFlags' | 'UseAgentTime' | 'StartDate' | 'Schedule'
-> & {
-  EntityType: ScriptTargetEntityType;
+/**
+ * Wire body for `POST /Batch/ScriptSchedule` as the web console posts it:
+ * numeric EntityType, string EntityIds / ScriptId, Priority 12 by default.
+ */
+export interface ScriptExecuteBatchBody {
+  EntityType: number;
+  EntityIds: string[];
+  ScriptId?: string;
+  ScriptGuid?: string;
   Parameters: ScriptParameterValue[];
   Priority: number;
-  OfflineActionFlags: Required<ScriptOfflineActionFlags>;
+  OfflineActionFlags: {
+    SkipsOfflineAgents: boolean;
+    WakesOfflineAgents: boolean;
+    OnlyRunsOnOfflineAgents?: boolean;
+  };
   UseAgentTime: boolean;
   StartDate: string;
   Schedule: ScriptScheduleSettings;
-};
+  ExpireDate?: string;
+  DistributionWindow?: ScriptDistributionWindow;
+  IncludeSubGroups?: boolean;
+}
 
 /**
  * Per-target outcome of the launch itself, not of the script run
@@ -404,7 +415,7 @@ export interface ScriptBatchResult {
   };
 }
 
-/** Response from `POST /Batch/ScriptExecute` (`ScheduleScriptBatchResponse`). */
+/** Response from `POST /Batch/ScriptSchedule` (`ScheduleScriptBatchResponse`). */
 export interface ScriptExecuteBatchResponse {
   ScriptResults?: ScriptBatchResult[];
   ContainsUnsuccessfulResults?: boolean;

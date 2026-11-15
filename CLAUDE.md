@@ -33,11 +33,16 @@ Full audit of every resource against the spec (PR #88). What Automate actually d
   `GET /Computers/{id}/CommandExecute?ids=<Id>` and read `Status` / `Output` from that
   row (`Success`, `Failed`, `Terminated` are terminal). Catalog ids are instance-defined;
   the PowerShell module uses id 2 with a `cmd.exe!!! /c …` parameter for shell execution.
-- Scripts run through `POST /Batch/ScriptExecute` (`Parameters` as `{Key, Value}`,
-  `OfflineActionFlags`, per-target `ResultDetails`). No job handle exists anywhere in the
-  spec; outcomes are recovered from `GET /Computers/{id}/ScriptHistory`
-  (`Status = Completed`, `State = Success | Failure | Information`). `GET /Scripts/{id}`
-  is v2-only and `Script.Id` is a string.
+- Scripts launch through `POST /Batch/ScriptSchedule` (Control Center "Run now";
+  sibling of `ScriptExecute`). Wire body uses numeric `EntityType` (Computer=1),
+  string `EntityIds` / `ScriptId`, `Priority` 12, run-once frequency id 1,
+  `StartDate` as ISO with local offset, and
+  `OfflineActionFlags: { SkipsOfflineAgents, WakesOfflineAgents }` true by default.
+  Public SDK still accepts string EntityType and numeric ids. `Parameters` stay
+  `{Key, Value}`. No job handle exists; outcomes come from
+  `GET /Computers/{id}/ScriptHistory` (`Status = Completed`,
+  `State = Success | Failure | Information`). `Script.Id` is a string. `get()` calls
+  `GET /Scripts/{id}` on v1; `getDetail()` calls `GET /api/v2/Scripts/{id}`.
 - Contacts CRUD exists only under `/api/v2` (`ContactId`, `EmailAddress`,
   `Client { ClientId }`), with PUT rather than PATCH. PATCH bodies everywhere are
   JSON Patch operations `[{ Op, Path, Value }]`, not partial entities.

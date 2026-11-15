@@ -12,10 +12,11 @@
  *    and omits GET /api/v1/Scripts/{id}, but live instances serve the v1 route
  *    and at least one hosted instance terminates v2 requests — so get() is v1
  *    and getDetail() is the v2 contract.
- *  - Scripts are launched through POST /Batch/ScriptExecute, and a run's
- *    outcome is only observable through GET /Computers/{id}/ScriptHistory.
- *    Nothing in the spec links the launch to a history row, so results are
- *    correlated by history-row identity against a pre-launch baseline.
+ *  - Scripts are launched through POST /Batch/ScriptSchedule (Control Center
+ *    "Run now"; ScriptExecute is a sibling Batch route), and a run's outcome
+ *    is only observable through GET /Computers/{id}/ScriptHistory. Nothing in
+ *    the spec links the launch to a history row, so results are correlated by
+ *    history-row identity against a pre-launch baseline.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -88,7 +89,7 @@ function mockRun(
   };
 
   server.use(
-    http.post(`${API_BASE}/Batch/ScriptExecute`, async ({ request }) => {
+    http.post(`${API_BASE}/Batch/ScriptSchedule`, async ({ request }) => {
       state.launched = await request.json();
       return HttpResponse.json(batchResponse);
     }),
@@ -307,7 +308,7 @@ describe('Scripts Resource', () => {
   });
 
   describe('executeBatch', () => {
-    it('should send the full explicit batch body', async () => {
+    it('should POST the Control Center ScriptSchedule body', async () => {
       const client = createClient();
       const state = mockRun({});
 
@@ -316,22 +317,21 @@ describe('Scripts Resource', () => {
         ScriptId: 42,
         Parameters: [{ Key: 'ServiceName', Value: 'Spooler' }],
         OfflineActionFlags: { SkipsOfflineAgents: true },
-        Priority: 2,
+        Priority: 12,
       });
 
       expect(state.launched).toEqual({
-        EntityType: 'Computer',
-        EntityIds: [1, 2],
-        ScriptId: 42,
+        EntityType: 1,
+        EntityIds: ['1', '2'],
+        ScriptId: '42',
         Parameters: [{ Key: 'ServiceName', Value: 'Spooler' }],
         OfflineActionFlags: {
           SkipsOfflineAgents: true,
-          WakesOfflineAgents: false,
-          OnlyRunsOnOfflineAgents: false,
+          WakesOfflineAgents: true,
         },
-        Priority: 2,
+        Priority: 12,
         UseAgentTime: false,
-        StartDate: expect.stringMatching(/^\d{4}-/),
+        StartDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/),
         Schedule: { ScriptScheduleFrequency: { ScriptScheduleFrequencyId: 1 } },
       });
     });
@@ -348,7 +348,7 @@ describe('Scripts Resource', () => {
       ].map(body => HttpResponse.json(body, { status: 500 })),
     ])('surfaces a 500 message and status without retrying POST', async response => {
       let requests = 0;
-      server.use(http.post(`${API_BASE}/Batch/ScriptExecute`, () => {
+      server.use(http.post(`${API_BASE}/Batch/ScriptSchedule`, () => {
         requests++;
         return response.clone();
       }));
@@ -359,7 +359,7 @@ describe('Scripts Resource', () => {
 
     it('rejects invalid input before making a request', async () => {
       let requests = 0;
-      server.use(http.post(`${API_BASE}/Batch/ScriptExecute`, () => {
+      server.use(http.post(`${API_BASE}/Batch/ScriptSchedule`, () => {
         requests++;
         return HttpResponse.json({});
       }));
