@@ -1,3 +1,11 @@
+## [4.0.4](https://github.com/WYRE-AI/node-connectwise-automate/compare/v4.0.3...v4.0.4) (2026-11-15)
+
+
+### Bug Fixes
+
+* **scripts:** launch via Batch/ScriptSchedule console body (WYREAI-573) ([#116](https://github.com/WYRE-AI/node-connectwise-automate/issues/116)) ([72977b0](https://github.com/WYRE-AI/node-connectwise-automate/commit/72977b00e2265b906cc861726ccc7336ea36c980))
+
+
 ## [4.0.3](https://github.com/WYRE-AI/node-connectwise-automate/compare/v4.0.2...v4.0.3) (2026-11-11)
 
 
