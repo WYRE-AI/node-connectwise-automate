@@ -406,7 +406,7 @@ export class HttpClient {
   }
 }
 
-const QUEUED_ROUTES = /\/CommandExecute|\/ScriptExecute|\/ScheduledScripts/i;
+const QUEUED_ROUTES = /\/CommandExecute|\/ScriptExecute|\/ScriptSchedule|\/ScheduledScripts/i;
 
 /**
  * Ids already known from the request body. The execution id (`Id`) is the one

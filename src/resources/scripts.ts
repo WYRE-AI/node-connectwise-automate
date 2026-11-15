@@ -125,8 +125,9 @@ export class ScriptsResource {
 
   /**
    * Launch a script against many targets in one call
-   * (`POST /Batch/ScriptExecute`).
+   * (`POST /Batch/ScriptSchedule`).
    *
+   * Matches the Automate web console "Run now" path (not ScriptExecute).
    * Unlike the per-computer schedule route, this reports per-target acceptance
    * so a target that was rejected outright (permissions, unknown id) is
    * distinguishable from one whose script simply hasn't finished yet.
@@ -135,7 +136,7 @@ export class ScriptsResource {
     request: ScriptExecuteBatchRequest
   ): Promise<ScriptExecuteBatchResponse> {
     return this.httpClient.request<ScriptExecuteBatchResponse>(
-      '/Batch/ScriptExecute',
+      '/Batch/ScriptSchedule',
       {
         method: 'POST',
         body: buildScriptExecuteBatchBody(request),
@@ -174,7 +175,7 @@ export class ScriptsResource {
    * Run a script on one or more computers and poll until each finishes.
    *
    * Automate has no synchronous run and hands back no handle: per the spec,
-   * `POST /Batch/ScriptExecute` returns only `{ EntityId, ResultDetails }`
+   * `POST /Batch/ScriptSchedule` returns only `{ EntityId, ResultDetails }`
    * per target, and neither `ComputerScriptHistory` nor
    * `ComputerRunningScript` carries a schedule, batch, or instance id that
    * could be matched back to it. So the outcome has to be recovered from
