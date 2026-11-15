@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   buildScriptExecuteBatchBody,
   DEFAULT_SCRIPT_PRIORITY,
@@ -12,24 +12,47 @@ import type { ScriptExecuteBatchRequest, ScriptTargetEntityType } from '../../sr
 
 const now = new Date('2026-01-02T03:04:05.000Z');
 
+/** Stub Date local getters so formatIsoWithOffset is timezone-deterministic. */
+function withLocalClock(
+  tzOffsetMinutes: number,
+  local: { y: number; m: number; d: number; H: number; M: number; S: number },
+  run: () => void
+): void {
+  const spies = [
+    vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(tzOffsetMinutes),
+    vi.spyOn(Date.prototype, 'getFullYear').mockReturnValue(local.y),
+    vi.spyOn(Date.prototype, 'getMonth').mockReturnValue(local.m),
+    vi.spyOn(Date.prototype, 'getDate').mockReturnValue(local.d),
+    vi.spyOn(Date.prototype, 'getHours').mockReturnValue(local.H),
+    vi.spyOn(Date.prototype, 'getMinutes').mockReturnValue(local.M),
+    vi.spyOn(Date.prototype, 'getSeconds').mockReturnValue(local.S),
+  ];
+  try {
+    run();
+  } finally {
+    for (const spy of spies) {
+      spy.mockRestore();
+    }
+  }
+}
+
 describe('buildScriptExecuteBatchBody', () => {
   it('serializes the Control Center ScriptSchedule wire shape', () => {
-    expect(JSON.parse(JSON.stringify(buildScriptExecuteBatchBody({ EntityIds: [748], ScriptId: 5160 }, now)))).toEqual({
-      EntityType: 1,
-      EntityIds: ['748'],
-      ScriptId: '5160',
-      Parameters: [],
-      Priority: DEFAULT_SCRIPT_PRIORITY,
-      OfflineActionFlags: { SkipsOfflineAgents: true, WakesOfflineAgents: true },
-      UseAgentTime: false,
-      StartDate: formatIsoWithOffset(now),
-      Schedule: { ScriptScheduleFrequency: { ScriptScheduleFrequencyId: SCRIPT_SCHEDULE_FREQUENCY_ONCE } },
+    withLocalClock(300, { y: 2026, m: 0, d: 1, H: 22, M: 4, S: 5 }, () => {
+      expect(JSON.parse(JSON.stringify(buildScriptExecuteBatchBody({ EntityIds: [748], ScriptId: 5160 }, now)))).toEqual({
+        EntityType: 1,
+        EntityIds: ['748'],
+        ScriptId: '5160',
+        Parameters: [],
+        Priority: DEFAULT_SCRIPT_PRIORITY,
+        OfflineActionFlags: { SkipsOfflineAgents: true, WakesOfflineAgents: true },
+        UseAgentTime: false,
+        StartDate: '2026-01-01T22:04:05-05:00',
+        Schedule: { ScriptScheduleFrequency: { ScriptScheduleFrequencyId: SCRIPT_SCHEDULE_FREQUENCY_ONCE } },
+      });
     });
     expect(DEFAULT_SCRIPT_PRIORITY).toBe(12);
     expect(SCRIPT_SCHEDULE_FREQUENCY_ONCE).toBe(1);
-    expect(formatIsoWithOffset(now)).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/
-    );
   });
 
   it('maps string EntityTypes to swagger ordinals and keeps Parameters', () => {
@@ -106,6 +129,33 @@ describe('buildScriptExecuteBatchBody', () => {
 
   it.each([{}, { ScriptId: 42, ScriptGuid: 'guid' }])('requires exactly one script identifier %j', script => {
     expect(() => buildScriptExecuteBatchBody({ EntityIds: [1], ...script })).toThrow(ConnectWiseAutomateValidationError);
+  });
+});
+
+describe('formatIsoWithOffset', () => {
+  it.each([
+    {
+      name: 'UTC',
+      tzOffset: 0,
+      local: { y: 2026, m: 0, d: 2, H: 3, M: 4, S: 5 },
+      expected: '2026-01-02T03:04:05+00:00',
+    },
+    {
+      name: 'UTC-5 with date rollover',
+      tzOffset: 300,
+      local: { y: 2026, m: 0, d: 1, H: 22, M: 4, S: 5 },
+      expected: '2026-01-01T22:04:05-05:00',
+    },
+    {
+      name: 'UTC+5:45',
+      tzOffset: -345,
+      local: { y: 2026, m: 0, d: 2, H: 8, M: 49, S: 5 },
+      expected: '2026-01-02T08:49:05+05:45',
+    },
+  ])('formats $expected ($name)', ({ tzOffset, local, expected }) => {
+    withLocalClock(tzOffset, local, () => {
+      expect(formatIsoWithOffset(now)).toBe(expected);
+    });
   });
 });
 

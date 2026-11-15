@@ -41,8 +41,8 @@ Full audit of every resource against the spec (PR #88). What Automate actually d
   Public SDK still accepts string EntityType and numeric ids. `Parameters` stay
   `{Key, Value}`. No job handle exists; outcomes come from
   `GET /Computers/{id}/ScriptHistory` (`Status = Completed`,
-  `State = Success | Failure | Information`). `GET /Scripts/{id}` is v2-only and
-  `Script.Id` is a string.
+  `State = Success | Failure | Information`). `Script.Id` is a string. `get()` calls
+  `GET /Scripts/{id}` on v1; `getDetail()` calls `GET /api/v2/Scripts/{id}`.
 - Contacts CRUD exists only under `/api/v2` (`ContactId`, `EmailAddress`,
   `Client { ClientId }`), with PUT rather than PATCH. PATCH bodies everywhere are
   JSON Patch operations `[{ Op, Path, Value }]`, not partial entities.
